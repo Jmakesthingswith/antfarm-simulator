@@ -1174,6 +1174,20 @@ function setupControls() {
             case '7': // Decrease Speed by 100
                 setStepsPerSecond(appState.stepsPerSecond - 100, true);
                 break;
+            case 'e': // Full Speed
+                if (fullSpeedBtn) {
+                    fullSpeedBtn.click();
+                } else {
+                    setStepsPerSecond(10000, true, 'Full Speed');
+                }
+                break;
+            case 'w': // Reset Speed
+                if (resetSpeedBtn) {
+                    resetSpeedBtn.click();
+                } else {
+                    setStepsPerSecond(11, true, 'Reset Speed');
+                }
+                break;
             case 'g': // Toggle Grid
                 if (gridToggle) {
                     gridToggle.checked = !gridToggle.checked;
@@ -1335,6 +1349,8 @@ function updateHotkeyOverlay() {
         [Space] ${isPausedText}<br>
         [9/0] -/+ 5 Small Speed Change<br>
         [7/8] -/+ 100 Large Speed Change<br>
+        [E] Full Speed<br>
+        [W] Reset Speed<br>
         [G] ${gridText}<br>
         [U] ${is3DText}<br>
         [H] Hide/Show HUD<br>
