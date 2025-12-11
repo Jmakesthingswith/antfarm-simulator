@@ -17,6 +17,19 @@ const SPEED_MIN = 10;
 const SPEED_MAX = 10000;
 let paletteEditSnapshot = null;
 
+const STRICT_SPAWN_PRESETS = [
+    { id: 'loose', label: 'Strict Spawn: Loose (Random Jitter)' },
+    { id: 'center', label: 'Strict Spawn: Center Point' },
+    { id: 'line', label: 'Strict Spawn: Center Line' },
+    { id: 'vertical', label: 'Strict Spawn: Vertical Line' },
+    { id: 'cross', label: 'Strict Spawn: Cross' },
+    { id: 'diamond', label: 'Strict Spawn: Diamond' },
+    { id: 'ring', label: 'Strict Spawn: Ring' },
+    { id: 'grid3', label: 'Strict Spawn: 3x3 Grid' },
+    { id: 'diagonal', label: 'Strict Spawn: Diagonal' },
+    { id: 'corners', label: 'Strict Spawn: Corners' }
+];
+
 const appState = {
     sim: null,
     renderer: null,
@@ -36,7 +49,7 @@ const appState = {
     forceFullRedraw: false,
     parallaxFrames: 0,
     parallaxMode: 'off',
-    strictCenterSpawn: false,
+    strictSpawnIndex: 0,
     overlaysHidden: false
 };
 
@@ -157,7 +170,8 @@ function getSnapshot() {
         renderMode: appState.renderer ? appState.renderer.renderMode : 'default',
         showGrid: appState.renderer ? appState.renderer.showGrid : false,
         use3D: appState.parallaxMode !== 'off',
-        parallaxMode: appState.parallaxMode
+        parallaxMode: appState.parallaxMode,
+        strictSpawnIndex: appState.strictSpawnIndex
     };
 }
 
@@ -191,6 +205,10 @@ function applySnapshot(snapshot) {
         ? snapshot.parallaxMode
         : (snapshot.use3D ? 'mouse' : 'off');
     setParallaxMode(snapshotParallaxMode);
+    if (typeof snapshot.strictSpawnIndex === 'number') {
+        appState.strictSpawnIndex = snapshot.strictSpawnIndex % STRICT_SPAWN_PRESETS.length;
+        updateStrictSpawnUI();
+    }
     captureStartState();
     requestRender({ grid: true, forceFullRedraw: true });
     processRenderQueue();
@@ -202,9 +220,14 @@ function updateUndoRedoUI() {
     if (redoBtn) redoBtn.disabled = appState.redoStack.length === 0;
 }
 
-function updateStrictCenterUI() {
+function currentStrictPreset() {
+    return STRICT_SPAWN_PRESETS[appState.strictSpawnIndex] || STRICT_SPAWN_PRESETS[0];
+}
+
+function updateStrictSpawnUI() {
     if (!strictCenterBtn) return;
-    strictCenterBtn.textContent = appState.strictCenterSpawn ? 'Strict Centre Spawn: On' : 'Strict Centre Spawn: Off';
+    const preset = currentStrictPreset();
+    strictCenterBtn.textContent = preset.label;
 }
 
 function setParallaxMode(mode) {
@@ -515,7 +538,8 @@ function buildExportPayload() {
         seed: appState.seed,
         showGrid: appState.renderer.showGrid,
         use3D: appState.parallaxMode !== 'off',
-        parallaxMode: appState.parallaxMode
+        parallaxMode: appState.parallaxMode,
+        strictSpawnIndex: appState.strictSpawnIndex
     };
 }
 
@@ -593,6 +617,10 @@ function applyImportPayload(data) {
             ? data.parallaxMode
             : (data.use3D ? 'mouse' : 'off');
         setParallaxMode(importParallaxMode);
+        if (typeof data.strictSpawnIndex === 'number') {
+            appState.strictSpawnIndex = data.strictSpawnIndex % STRICT_SPAWN_PRESETS.length;
+            updateStrictSpawnUI();
+        }
         if (gridToggle) gridToggle.checked = appState.renderer.showGrid;
         updateColorPicker();
         renderRuleSummary();
@@ -692,10 +720,10 @@ function setupControls() {
 
     if (strictCenterBtn) {
         strictCenterBtn.addEventListener('click', () => {
-            appState.strictCenterSpawn = !appState.strictCenterSpawn;
-            updateStrictCenterUI();
+            appState.strictSpawnIndex = (appState.strictSpawnIndex + 1) % STRICT_SPAWN_PRESETS.length;
+            updateStrictSpawnUI();
         });
-        updateStrictCenterUI();
+        updateStrictSpawnUI();
     }
 
     if (speedSlider) {
@@ -802,14 +830,13 @@ function setupControls() {
                 facing = parseInt(facingVal, 10);
             }
 
-            let spawnPoint;
-            if (appState.strictCenterSpawn) {
-                const centerX = Math.floor(GRID_WIDTH / 2);
-                const centerY = Math.floor(GRID_HEIGHT / 2);
-                spawnPoint = { x: centerX, y: centerY };
-            } else {
-                spawnPoint = RuleGenerators.getSpawnGeometry(mode, index, sim.ants.length + 1, GRID_WIDTH, GRID_HEIGHT);
-            }
+            const strictPreset = currentStrictPreset();
+            const strictPoint = strictPreset.id === 'loose'
+                ? null
+                : getStrictSpawnPoint(strictPreset.id, index, sim.ants.length + 1);
+            const spawnPoint = strictPoint
+                ? strictPoint
+                : RuleGenerators.getSpawnGeometry(mode, index, sim.ants.length + 1, GRID_WIDTH, GRID_HEIGHT);
             const { x, y } = spawnPoint;
             sim.addAnt(x, y, facing);
 
@@ -975,10 +1002,14 @@ function setupControls() {
 
             for (let i = 0; i < antCount; i++) {
                 let x, y, facing;
+                const strictPreset = currentStrictPreset();
+                const strictPoint = strictPreset.id === 'loose'
+                    ? null
+                    : getStrictSpawnPoint(strictPreset.id, i, antCount);
 
-                if (appState.strictCenterSpawn) {
-                    x = Math.floor(GRID_WIDTH / 2);
-                    y = Math.floor(GRID_HEIGHT / 2);
+                if (strictPoint) {
+                    x = strictPoint.x;
+                    y = strictPoint.y;
                     facing = Math.floor(Math.random() * 4);
                 } else if (lastSpawn && Math.random() < 0.15) {
                     // 15% Chance to stack on previous ant (if exists) -> Same Pos, Diff Facing
@@ -1294,6 +1325,86 @@ function randomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function getStrictSpawnPoint(presetId, index = 0, total = 1) {
+    const centerX = Math.floor(GRID_WIDTH / 2);
+    const centerY = Math.floor(GRID_HEIGHT / 2);
+    const margin = 2;
+    const clampX = (x) => clamp(x, margin, GRID_WIDTH - margin - 1);
+    const clampY = (y) => clamp(y, margin, GRID_HEIGHT - margin - 1);
+
+    switch (presetId) {
+        case 'center':
+            return { x: centerX, y: centerY };
+        case 'line': {
+            const span = Math.max(3, total);
+            const offset = index - Math.floor(span / 2);
+            return { x: clampX(centerX + offset), y: centerY };
+        }
+        case 'vertical': {
+            const span = Math.max(3, total);
+            const offset = index - Math.floor(span / 2);
+            return { x: centerX, y: clampY(centerY + offset) };
+        }
+        case 'cross': {
+            const spacing = 3;
+            const positions = [
+                { x: centerX, y: centerY },
+                { x: centerX, y: clampY(centerY - spacing) },
+                { x: clampX(centerX + spacing), y: centerY },
+                { x: centerX, y: clampY(centerY + spacing) },
+                { x: clampX(centerX - spacing), y: centerY }
+            ];
+            return positions[index % positions.length];
+        }
+        case 'diamond': {
+            const spacing = 4;
+            const positions = [
+                { x: centerX, y: centerY },
+                { x: centerX, y: clampY(centerY - spacing) },
+                { x: clampX(centerX + spacing), y: centerY },
+                { x: centerX, y: clampY(centerY + spacing) },
+                { x: clampX(centerX - spacing), y: centerY },
+                { x: clampX(centerX + spacing), y: clampY(centerY - spacing) },
+                { x: clampX(centerX + spacing), y: clampY(centerY + spacing) },
+                { x: clampX(centerX - spacing), y: clampY(centerY + spacing) },
+                { x: clampX(centerX - spacing), y: clampY(centerY - spacing) }
+            ];
+            return positions[index % positions.length];
+        }
+        case 'ring': {
+            const radius = Math.max(6, Math.floor(Math.min(GRID_WIDTH, GRID_HEIGHT) * 0.08));
+            const count = Math.max(6, total);
+            const angle = (index % count) / count * Math.PI * 2;
+            const x = clampX(Math.round(centerX + Math.cos(angle) * radius));
+            const y = clampY(Math.round(centerY + Math.sin(angle) * radius));
+            return { x, y };
+        }
+        case 'grid3': {
+            const spacing = 3;
+            const offsets = [-spacing, 0, spacing];
+            const gx = offsets[Math.floor(index / 3) % 3];
+            const gy = offsets[index % 3];
+            return { x: clampX(centerX + gx), y: clampY(centerY + gy) };
+        }
+        case 'diagonal': {
+            const span = Math.max(3, total);
+            const offset = index - Math.floor(span / 2);
+            return { x: clampX(centerX + offset), y: clampY(centerY + offset) };
+        }
+        case 'corners': {
+            const positions = [
+                { x: margin, y: margin },
+                { x: GRID_WIDTH - margin - 1, y: margin },
+                { x: margin, y: GRID_HEIGHT - margin - 1 },
+                { x: GRID_WIDTH - margin - 1, y: GRID_HEIGHT - margin - 1 }
+            ];
+            return positions[index % positions.length];
+        }
+        default:
+            return null; // Loose / default jitter
+    }
+}
+
 function generateSpawnPoint() {
     const states = appState.currentRules ? Object.keys(appState.currentRules).map(Number) : [0];
     const statePool = states.length ? states : [0];
@@ -1304,12 +1415,11 @@ function generateSpawnPoint() {
     const jitterY = Math.min(20, Math.max(5, Math.floor(GRID_HEIGHT * 0.02))) || 1;
     const margin = 2;
 
-    const x = appState.strictCenterSpawn
-        ? centerX
-        : clamp(centerX + randomInt(-jitterX, jitterX), margin, GRID_WIDTH - margin - 1);
-    const y = appState.strictCenterSpawn
-        ? centerY
-        : clamp(centerY + randomInt(-jitterY, jitterY), margin, GRID_HEIGHT - margin - 1);
+    const strictPreset = currentStrictPreset();
+    const strictPoint = strictPreset.id === 'loose' ? null : getStrictSpawnPoint(strictPreset.id);
+
+    const x = strictPoint ? strictPoint.x : clamp(centerX + randomInt(-jitterX, jitterX), margin, GRID_WIDTH - margin - 1);
+    const y = strictPoint ? strictPoint.y : clamp(centerY + randomInt(-jitterY, jitterY), margin, GRID_HEIGHT - margin - 1);
     const facing = randomInt(0, 3); // Cardinal only for stability
     const state = statePool[randomInt(0, statePool.length - 1)] || 0;
 
