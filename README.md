@@ -68,8 +68,6 @@ Then visit `http://localhost:8000` in your browser.
 
 - Optional Truchet-style preset for tile-based patterns
 
-- Smooth colour transitions when switching palettes
-
 - Mutated rule variants that extend presets without altering them (deep cloning ensures reproducibility)
 
 - Randomizer automatically produces Truchet patterns when Truchet mode is active
@@ -117,7 +115,7 @@ What's working well:
 - Stable performance due to typed arrays and efficient stepping
 - Built-in undo/redo support
 
-Improvements:
+Improvements to make:
 - Truchet mode probably deserves its own engine instead of being adapted through turmite logic
 - Renderer and simulation could share a single config object
 - Colour themes could be saved as presets
