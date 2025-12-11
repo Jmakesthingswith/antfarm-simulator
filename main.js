@@ -455,9 +455,6 @@ function updateColorPicker() {
             }
             renderRuleSummary();
 
-            // If we modified a preset, switch select to "Custom" if it exists, or just keep it
-            // Actually, let's just force redraw
-            // Actually, let's just force redraw
             requestRender({ grid: true, forceFullRedraw: true });
             processRenderQueue();
         });
