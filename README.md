@@ -110,5 +110,3 @@ Improvements:
 ## Acknowledgements
 
 This project was inspired by Youtube's Emergent Garden and their Ant/Turmite Simulation, the code was built upon that.
-
-```
