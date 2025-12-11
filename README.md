@@ -100,7 +100,7 @@ Improvements:
 - Truchet mode probably deserves its own engine instead of being adapted through turmite logic
 - Renderer and simulation could share a single config object
 - Colour themes could be saved as presets
-- Heatmap mode will likely be removed
+- Heatmap mode will likely be removed. Smooth colour toggle is currently cosmetic with plans to make it functional.
 - Some refactoring and cleanup
 - Review the randomizer and preset libraries, and expand colour-related features
 - Add a JSON Ruleset gallery folder and populate with exported rulesets
