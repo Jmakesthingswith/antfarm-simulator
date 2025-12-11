@@ -20,9 +20,9 @@ A control panel is included for adjusting rulesets, speed, presets and other set
 
 ## Running the project
 
-1. Clone the repository or download the files.
-2. Open `index.html` in a browser.
-3. Some browsers require a local server for module imports. If needed, you can use a simple server. cd to the filepath and then do:
+Clone the repository or download the files.
+Because this project uses ES modules, it must be served from a local web server.
+Open a terminal in the project folder and run:
 
 ```bash
 
