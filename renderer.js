@@ -18,10 +18,6 @@ class GridRenderer {
         this.gridCanvas = document.createElement('canvas');
         this.gridCtx = this.gridCanvas.getContext('2d', { alpha: true });
         this.showGrid = false;
-        this.smoothTransitions = false;
-        this.showHeatmap = false;
-        this.visitCounts = new Uint32Array();
-        this.maxVisitCount = 0;
 
         // Color Palettes (Max 5 colors per theme)
         this.palettes = {
@@ -78,18 +74,6 @@ class GridRenderer {
 
     set3D(enabled) {
         this.use3D = enabled;
-    }
-
-    setSmoothTransitions(enabled) {
-        this.smoothTransitions = enabled;
-    }
-
-    setHeatmap(enabled) {
-        this.showHeatmap = enabled;
-        if (enabled && this.width && this.height) {
-            this.visitCounts = new Uint32Array(this.width * this.height);
-            this.maxVisitCount = 0;
-        }
     }
 
     setScale(newScale) {
@@ -172,8 +156,6 @@ class GridRenderer {
 
         this.gridCanvas.width = pixelWidth;
         this.gridCanvas.height = pixelHeight;
-        this.visitCounts = new Uint32Array(width * height);
-        this.maxVisitCount = 0;
 
         if (this.showGrid) this.drawOffscreenGrid();
     }
@@ -220,11 +202,6 @@ class GridRenderer {
                 const x = index % width;
                 const y = Math.floor(index / width);
                 const state = grid[index];
-                if (this.showHeatmap) {
-                    const next = (this.visitCounts[index] || 0) + 1;
-                    this.visitCounts[index] = next;
-                    if (next > this.maxVisitCount) this.maxVisitCount = next;
-                }
 
                 // Clear the cell first (transparency)
                 ctx.clearRect(x * cellSize, y * cellSize, cellSize, cellSize);
@@ -247,10 +224,6 @@ class GridRenderer {
             // Full Redraw of Offscreen Canvas
             ctx.clearRect(0, 0, this.offscreenCanvas.width, this.offscreenCanvas.height);
             // We NO LONGER fill with background color here. Transparency for state 0.
-            if (this.showHeatmap) {
-                this.visitCounts.fill(0);
-                this.maxVisitCount = 0;
-            }
 
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
@@ -323,7 +296,7 @@ class GridRenderer {
         const height = this.canvas.height;
         const cellSize = this.cellSize;
 
-        ctx.filter = this.smoothTransitions ? 'blur(0.3px)' : 'none';
+        ctx.filter = 'none';
 
         // Clear Main Canvas
         ctx.fillStyle = this.currentPalette[0]; // Fill with black to cover edges during wiggle
@@ -362,21 +335,6 @@ class GridRenderer {
 
         // 3. Draw Active Cells (Transparent background)
         ctx.drawImage(this.offscreenCanvas, fgX, fgY);
-
-        if (this.showHeatmap && this.maxVisitCount > 0) {
-            ctx.save();
-            for (let i = 0; i < this.visitCounts.length; i++) {
-                const count = this.visitCounts[i];
-                if (!count) continue;
-                const alpha = Math.min(0.45, (count / this.maxVisitCount) * 0.45);
-                if (alpha <= 0) continue;
-                ctx.fillStyle = `rgba(255,128,0,${alpha.toFixed(3)})`;
-                const x = (i % this.width) * cellSize + fgX;
-                const y = Math.floor(i / this.width) * cellSize + fgY;
-                ctx.fillRect(x, y, cellSize, cellSize);
-            }
-            ctx.restore();
-        }
 
         for (const ant of ants) {
             const antX = (ant.x * cellSize) + fgX;
