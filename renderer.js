@@ -113,32 +113,47 @@ class GridRenderer {
         const baseHue = Math.floor(Math.random() * 360);
         const strategies = ['analogous', 'triadic', 'complementary', 'vibrant'];
         const strategy = strategies[Math.floor(Math.random() * strategies.length)];
+        const normalize = (color) => color.toLowerCase();
+        const usedColors = new Set();
 
         // 1. Generate Background (Color 0) - Constant Black
-        palette.push('#000000ff');
+        const background = '#000000ff';
+        palette.push(background);
+        usedColors.add(normalize(background));
 
-        // 2. Generate Active Colors
+        // 2. Generate Active Colors (ensure no duplicates)
         for (let i = 1; i < count; i++) {
-            let hue, sat, light;
+            let hue, sat, light, candidate, attempts = 0;
+            do {
+                if (strategy === 'analogous') {
+                    hue = (baseHue + (i * 20) + attempts * 7) % 360;
+                    sat = 70 + Math.random() * 30;
+                    light = 50 + Math.random() * 20;
+                } else if (strategy === 'complementary') {
+                    hue = ((i % 2 === 0) ? baseHue : (baseHue + 180)) % 360;
+                    hue = (hue + attempts * 11) % 360;
+                    sat = 80;
+                    light = 60;
+                } else if (strategy === 'triadic') {
+                    hue = (baseHue + (i * 120) + attempts * 13) % 360;
+                    sat = 80;
+                    light = 60;
+                } else { // Vibrant / Random Pop
+                    hue = (baseHue + (i * 90) + attempts * 17) % 360; // Wide spread with jitter
+                    sat = 90;
+                    light = 60;
+                }
+                candidate = `hsl(${hue}, ${sat}%, ${light}%)`;
+                attempts++;
+                // After several attempts, fall back to a random hue to force uniqueness
+                if (attempts > 8) {
+                    const fallbackHue = Math.floor(Math.random() * 360);
+                    candidate = `hsl(${fallbackHue}, 85%, 60%)`;
+                }
+            } while (usedColors.has(normalize(candidate)) && attempts < 12);
 
-            if (strategy === 'analogous') {
-                hue = (baseHue + (i * 20)) % 360;
-                sat = 70 + Math.random() * 30;
-                light = 50 + Math.random() * 20;
-            } else if (strategy === 'complementary') {
-                hue = (i % 2 === 0) ? baseHue : (baseHue + 180) % 360;
-                sat = 80;
-                light = 60;
-            } else if (strategy === 'triadic') {
-                hue = (baseHue + (i * 120)) % 360;
-                sat = 80;
-                light = 60;
-            } else { // Vibrant / Random Pop
-                hue = (baseHue + (i * 90)) % 360; // Wide spread
-                sat = 90;
-                light = 60;
-            }
-            palette.push(`hsl(${hue}, ${sat}%, ${light}%)`);
+            usedColors.add(normalize(candidate));
+            palette.push(candidate);
         }
         return palette;
     }
