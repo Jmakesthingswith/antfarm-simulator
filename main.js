@@ -34,7 +34,8 @@ const appState = {
     renderRequested: false,
     gridRenderRequested: false,
     forceFullRedraw: false,
-    parallaxFrames: 0
+    parallaxFrames: 0,
+    strictCenterSpawn: false
 };
 
 /**
@@ -110,9 +111,8 @@ const ruleSummary = document.getElementById('ruleSummary');
 const speedSlider = document.getElementById('speedSlider');
 const fullSpeedBtn = document.getElementById('fullSpeedBtn');
 const resetSpeedBtn = document.getElementById('resetSpeedBtn');
-const smoothColorsToggle = document.getElementById('smoothColorsToggle');
-const heatmapToggle = document.getElementById('heatmapToggle');
 const exportPanel = document.getElementById('exportPanel');
+const strictCenterBtn = document.getElementById('strictCenterBtn');
 
 function requestRender({ grid = false, forceFullRedraw = false } = {}) {
     appState.renderRequested = true;
@@ -154,9 +154,7 @@ function getSnapshot() {
         stepsPerSecond: appState.stepsPerSecond,
         renderMode: appState.renderer ? appState.renderer.renderMode : 'default',
         showGrid: appState.renderer ? appState.renderer.showGrid : false,
-        use3D: appState.renderer ? appState.renderer.use3D : false,
-        showHeatmap: appState.renderer ? appState.renderer.showHeatmap : false,
-        smoothTransitions: appState.renderer ? appState.renderer.smoothTransitions : false
+        use3D: appState.renderer ? appState.renderer.use3D : false
     };
 }
 
@@ -187,10 +185,6 @@ function applySnapshot(snapshot) {
     renderRuleSummary();
     renderer.setShowGrid(Boolean(snapshot.showGrid));
     renderer.set3D(Boolean(snapshot.use3D));
-    renderer.setHeatmap(Boolean(snapshot.showHeatmap));
-    renderer.setSmoothTransitions(Boolean(snapshot.smoothTransitions));
-    if (heatmapToggle) heatmapToggle.checked = renderer.showHeatmap;
-    if (smoothColorsToggle) smoothColorsToggle.checked = renderer.smoothTransitions;
     captureStartState();
     requestRender({ grid: true, forceFullRedraw: true });
     processRenderQueue();
@@ -201,6 +195,11 @@ function applySnapshot(snapshot) {
 function updateUndoRedoUI() {
     if (undoBtn) undoBtn.disabled = appState.undoStack.length === 0;
     if (redoBtn) redoBtn.disabled = appState.redoStack.length === 0;
+}
+
+function updateStrictCenterUI() {
+    if (!strictCenterBtn) return;
+    strictCenterBtn.textContent = appState.strictCenterSpawn ? 'Strict Center Spawn: On' : 'Strict Center Spawn: Off';
 }
 
 function pushHistoryAction(label, undoFn, redoFn) {
@@ -265,12 +264,6 @@ function init() {
     // Sync Grid State
     if (gridToggle) {
         appState.renderer.setShowGrid(gridToggle.checked);
-    }
-    if (smoothColorsToggle) {
-        smoothColorsToggle.checked = appState.renderer.smoothTransitions;
-    }
-    if (heatmapToggle) {
-        heatmapToggle.checked = appState.renderer.showHeatmap;
     }
 
     // Populate UI
@@ -473,9 +466,7 @@ function buildExportPayload() {
         renderMode: appState.renderer.renderMode,
         seed: appState.seed,
         showGrid: appState.renderer.showGrid,
-        use3D: appState.renderer.use3D,
-        showHeatmap: appState.renderer.showHeatmap,
-        smoothTransitions: appState.renderer.smoothTransitions
+        use3D: appState.renderer.use3D
     };
 }
 
@@ -550,13 +541,9 @@ function applyImportPayload(data) {
         if (themeSelect) themeSelect.value = "Custom";
         appState.renderer.setShowGrid(Boolean(data.showGrid));
         appState.renderer.set3D(Boolean(data.use3D));
-        appState.renderer.setHeatmap(Boolean(data.showHeatmap));
-        appState.renderer.setSmoothTransitions(Boolean(data.smoothTransitions));
         if (gridToggle) gridToggle.checked = appState.renderer.showGrid;
         const parallaxToggle = document.getElementById('parallaxToggle');
         if (parallaxToggle) parallaxToggle.checked = appState.renderer.use3D;
-        if (heatmapToggle) heatmapToggle.checked = appState.renderer.showHeatmap;
-        if (smoothColorsToggle) smoothColorsToggle.checked = appState.renderer.smoothTransitions;
         updateColorPicker();
         renderRuleSummary();
         appState.sim.markAllCellsDirty();
@@ -653,6 +640,14 @@ function setupControls() {
         processRenderQueue();
     });
 
+    if (strictCenterBtn) {
+        strictCenterBtn.addEventListener('click', () => {
+            appState.strictCenterSpawn = !appState.strictCenterSpawn;
+            updateStrictCenterUI();
+        });
+        updateStrictCenterUI();
+    }
+
     if (speedSlider) {
         speedSlider.addEventListener('input', (e) => {
             setStepsPerSecond(Number(e.target.value), false);
@@ -737,22 +732,6 @@ function setupControls() {
 
     } // <--- Closes the main "if (parallaxToggle)"
 
-    if (smoothColorsToggle) {
-        smoothColorsToggle.addEventListener('change', (e) => {
-            renderer.setSmoothTransitions(e.target.checked);
-            requestRender({ grid: false });
-            processRenderQueue();
-        });
-    }
-
-    if (heatmapToggle) {
-        heatmapToggle.addEventListener('change', (e) => {
-            renderer.setHeatmap(e.target.checked);
-            requestRender({ grid: true, forceFullRedraw: true });
-            processRenderQueue();
-        });
-    }
-
     const showHideBtn = document.getElementById('showHideBtn');
     const controlsPanel = document.getElementById('controls');
     if (showHideBtn && controlsPanel) {
@@ -790,7 +769,15 @@ function setupControls() {
                 facing = parseInt(facingVal, 10);
             }
 
-            const { x, y } = RuleGenerators.getSpawnGeometry(mode, index, sim.ants.length + 1, GRID_WIDTH, GRID_HEIGHT);
+            let spawnPoint;
+            if (appState.strictCenterSpawn) {
+                const centerX = Math.floor(GRID_WIDTH / 2);
+                const centerY = Math.floor(GRID_HEIGHT / 2);
+                spawnPoint = { x: centerX, y: centerY };
+            } else {
+                spawnPoint = RuleGenerators.getSpawnGeometry(mode, index, sim.ants.length + 1, GRID_WIDTH, GRID_HEIGHT);
+            }
+            const { x, y } = spawnPoint;
             sim.addAnt(x, y, facing);
 
             // Step 4: Capture (Save new clean configuration)
@@ -956,8 +943,12 @@ function setupControls() {
             for (let i = 0; i < antCount; i++) {
                 let x, y, facing;
 
-                // 15% Chance to stack on previous ant (if exists) -> Same Pos, Diff Facing
-                if (lastSpawn && Math.random() < 0.15) {
+                if (appState.strictCenterSpawn) {
+                    x = Math.floor(GRID_WIDTH / 2);
+                    y = Math.floor(GRID_HEIGHT / 2);
+                    facing = Math.floor(Math.random() * 4);
+                } else if (lastSpawn && Math.random() < 0.15) {
+                    // 15% Chance to stack on previous ant (if exists) -> Same Pos, Diff Facing
                     x = lastSpawn.x;
                     y = lastSpawn.y;
                     // Ensure different facing from the one immediately below it in the stack
@@ -1263,8 +1254,12 @@ function generateSpawnPoint() {
     const jitterY = Math.min(20, Math.max(5, Math.floor(GRID_HEIGHT * 0.02))) || 1;
     const margin = 2;
 
-    const x = clamp(centerX + randomInt(-jitterX, jitterX), margin, GRID_WIDTH - margin - 1);
-    const y = clamp(centerY + randomInt(-jitterY, jitterY), margin, GRID_HEIGHT - margin - 1);
+    const x = appState.strictCenterSpawn
+        ? centerX
+        : clamp(centerX + randomInt(-jitterX, jitterX), margin, GRID_WIDTH - margin - 1);
+    const y = appState.strictCenterSpawn
+        ? centerY
+        : clamp(centerY + randomInt(-jitterY, jitterY), margin, GRID_HEIGHT - margin - 1);
     const facing = randomInt(0, 3); // Cardinal only for stability
     const state = statePool[randomInt(0, statePool.length - 1)] || 0;
 
