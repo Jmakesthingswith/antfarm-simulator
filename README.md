@@ -116,6 +116,7 @@ Improvements:
 - Some refactoring and cleanup
 - Review the randomizer and preset libraries, and expand colour-related features
 - Add a JSON Ruleset gallery folder and populate with exported rulesets
+- Colour patterns/themes have no rule to not repeat single colours, leading to visual and rule errors, needs fixing.
 
 ---
 
