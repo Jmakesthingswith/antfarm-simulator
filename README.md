@@ -22,7 +22,7 @@ A control panel is included for adjusting rulesets, speed, presets and other set
 
 1. Clone the repository or download the files.
 2. Open `index.html` in a browser.
-3. Some browsers require a local server for module imports. If needed, you can use a simple server, cd to the filepath and then do:
+3. Some browsers require a local server for module imports. If needed, you can use a simple server. cd to the filepath and then do:
 
 ```bash
 
