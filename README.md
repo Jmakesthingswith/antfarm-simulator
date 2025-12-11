@@ -5,6 +5,9 @@ This is a small browser project that simulates ant-like agents (turmites) moving
 
 The project is written in plain HTML, CSS and JavaScript. There are no external dependencies. Everything runs locally in the browser.
 
+### Live Version
+https://jmakesthingswith.github.io/antfarm-simulator/
+
 ---
 
 ## How it works
