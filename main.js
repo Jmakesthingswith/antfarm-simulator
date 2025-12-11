@@ -35,7 +35,8 @@ const appState = {
     gridRenderRequested: false,
     forceFullRedraw: false,
     parallaxFrames: 0,
-    strictCenterSpawn: false
+    strictCenterSpawn: false,
+    overlaysHidden: false
 };
 
 /**
@@ -199,7 +200,16 @@ function updateUndoRedoUI() {
 
 function updateStrictCenterUI() {
     if (!strictCenterBtn) return;
-    strictCenterBtn.textContent = appState.strictCenterSpawn ? 'Strict Center Spawn: On' : 'Strict Center Spawn: Off';
+    strictCenterBtn.textContent = appState.strictCenterSpawn ? 'Strict Centre Spawn: On' : 'Strict Centre Spawn: Off';
+}
+
+function setOverlayVisibility(show) {
+    const statsOverlay = document.getElementById('statsOverlay');
+    const hotkeyOverlay = document.getElementById('hotkeyOverlay');
+    const displayValue = show ? '' : 'none';
+    if (statsOverlay) statsOverlay.style.display = displayValue;
+    if (hotkeyOverlay) hotkeyOverlay.style.display = displayValue;
+    appState.overlaysHidden = !show;
 }
 
 function pushHistoryAction(label, undoFn, redoFn) {
@@ -312,6 +322,7 @@ function init() {
     // Force a redraw after a short delay to ensure everything is settled
     requestRender({ grid: true, forceFullRedraw: true });
     processRenderQueue();
+    setOverlayVisibility(true);
 }
 
 function populatePresets() {
@@ -1160,7 +1171,7 @@ function setupControls() {
             case '8': // Increase Speed by 100
                 setStepsPerSecond(appState.stepsPerSecond + 100, true);
                 break;
-            case '5': // Decrease Speed by 100
+            case '7': // Decrease Speed by 100
                 setStepsPerSecond(appState.stepsPerSecond - 100, true);
                 break;
             case 'g': // Toggle Grid
@@ -1176,6 +1187,10 @@ function setupControls() {
                     parallaxToggle.dispatchEvent(new Event('change'));
                     updateHotkeyOverlay();
                 }
+                break;
+            case 'h': // Toggle HUD/Overlays
+                setOverlayVisibility(appState.overlaysHidden);
+                updateHotkeyOverlay();
                 break;
         }
     });
@@ -1309,18 +1324,21 @@ function updateHotkeyOverlay() {
     if (!overlay) return;
 
     const isPausedText = appState.isPaused ? '⏵ Resume' : '⏸ Pause';
-    const is3DText = appState.renderer.use3D ? '🌀 3D: ON' : '⬜ 3D: OFF';
+    const is3DText = appState.renderer.use3D ? '🌀 Mouse Parallax: ON' : '⬜ Mouse Parallax: OFF';
     const gridText = appState.renderer.showGrid ? '⊞ Grid: ON' : '⊞ Grid: OFF';
-
     overlay.innerHTML = `
         <strong style="color: #00ff88;">Quick Keys</strong><br>
-        [R] Randomize | [1/2] Cycle<br>
+        [R] Randomize <br>
+        [1/2] Cycle Presets<br>
+        [3] Restart Current Rule-Set<br>
+        [C] Randomize Colour<br>
         [Space] ${isPausedText}<br>
-        [3] Reset | [C] Color<br>
-        [9/0] Speed ±5 | [5] -100 | [8] +100<br>
+        [9/0] -/+ 5 Small Speed Change<br>
+        [7/8] -/+ 100 Large Speed Change<br>
         [G] ${gridText}<br>
         [U] ${is3DText}<br>
-        [S] Show/Hide Panel
+        [H] Hide/Show HUD<br>
+        [S] Show/Hide Controls Panel
     `.trim();
 }
 
