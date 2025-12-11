@@ -121,11 +121,11 @@ Improvements:
 - Truchet mode probably deserves its own engine instead of being adapted through turmite logic
 - Renderer and simulation could share a single config object
 - Colour themes could be saved as presets
-- Heatmap mode will likely be removed. Smooth colour toggle is currently cosmetic with plans to make it functional.
+- Heatmap mode will likely be removed. Smooth colour toggle is currently cosmetic with plans to make it functional. *Heatmap and Smooth colour have been removed.
 - Some refactoring and cleanup
 - Review the randomizer and preset libraries, and expand colour-related features
-- Add a JSON Ruleset gallery folder and populate with exported rulesets
-- Colour patterns/themes have no rule to not repeat single colours, leading to visual and rule errors, needs fixing.
+- Add a JSON Ruleset gallery folder and populate with exported rulesets. *Made a start on this.
+- Colour patterns/themes have no rule to not repeat single colours, leading to visual and rule errors, needs fixing. * Colour patterns/themes now enforce unique colours per palette (background is reserved, every active colour is different) to avoid duplicated swatches and odd rendering.
 
 ---
 
