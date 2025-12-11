@@ -99,7 +99,6 @@ What's working well:
 Improvements:
 - Truchet mode probably deserves its own engine instead of being adapted through turmite logic
 - Renderer and simulation could share a single config object
-- Randomizer explores rule-space widely, including:
 - Colour themes could be saved as presets
 - Heatmap mode will likely be removed
 - Some refactoring and cleanup
