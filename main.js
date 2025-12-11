@@ -463,8 +463,8 @@ function buildExportPayload() {
     return {
         rules: appState.currentRules,
         palette: appState.renderer.currentPalette,
-        grid: Array.from(appState.sim.grid),
-        orientations: Array.from(appState.sim.orientations || []),
+        // Export a sentinel instead of full grid data to keep files lightweight
+        grid: "empty",
         ants: appState.sim.ants,
         stepCount: appState.sim.stepCount,
         stepsPerSecond: appState.stepsPerSecond,
@@ -506,12 +506,16 @@ function validateImportPayload(data) {
     if (!data || typeof data !== 'object') return false;
     if (!data.rules || typeof data.rules !== 'object') return false;
     if (!Array.isArray(data.palette) || data.palette.length === 0) return false;
-    if (!Array.isArray(data.grid)) return false;
+    const gridIsEmptySentinel = data.grid === "empty";
+    const gridIsArray = Array.isArray(data.grid);
+    if (!gridIsEmptySentinel && !gridIsArray) return false;
+    const orientationsIsEmpty = data.orientations === "empty" || data.orientations === undefined;
+    const orientationsIsArray = Array.isArray(data.orientations);
     if (!Array.isArray(data.ants)) return false;
     if (typeof data.width !== 'number' || typeof data.height !== 'number') return false;
     if (data.width !== GRID_WIDTH || data.height !== GRID_HEIGHT) return false;
-    if (data.grid.length !== GRID_WIDTH * GRID_HEIGHT) return false;
-    if (data.orientations && (!Array.isArray(data.orientations) || data.orientations.length !== GRID_WIDTH * GRID_HEIGHT)) return false;
+    if (gridIsArray && data.grid.length !== GRID_WIDTH * GRID_HEIGHT) return false;
+    if (!orientationsIsEmpty && (!orientationsIsArray || data.orientations.length !== GRID_WIDTH * GRID_HEIGHT)) return false;
     return true;
 }
 
@@ -523,12 +527,12 @@ function applyImportPayload(data) {
     performWithHistory('Import JSON', () => {
         appState.currentRules = cloneStructured(data.rules);
         appState.sim.setRules(appState.currentRules);
-        appState.sim.grid = new Uint8Array(data.grid);
-        if (Array.isArray(data.orientations) && data.orientations.length === GRID_WIDTH * GRID_HEIGHT) {
-            appState.sim.orientations = new Uint8Array(data.orientations);
-        } else {
-            appState.sim.orientations = new Uint8Array(GRID_WIDTH * GRID_HEIGHT);
-        }
+        appState.sim.grid = data.grid === "empty"
+            ? new Uint8Array(GRID_WIDTH * GRID_HEIGHT)
+            : new Uint8Array(data.grid);
+        appState.sim.orientations = (Array.isArray(data.orientations) && data.orientations.length === GRID_WIDTH * GRID_HEIGHT)
+            ? new Uint8Array(data.orientations)
+            : new Uint8Array(GRID_WIDTH * GRID_HEIGHT);
         const safeAnts = cloneStructured(data.ants).map((ant) => ({
             x: Math.max(0, Math.min(GRID_WIDTH - 1, ant.x)),
             y: Math.max(0, Math.min(GRID_HEIGHT - 1, ant.y)),
