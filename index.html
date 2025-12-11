@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AntFarm: Turmite Research Lab</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="app">
+        <div id="canvas-container">
+            <canvas id="gridCanvas"></canvas>
+
+            <div id="statsOverlay" class="hud-panel glass-overlay">
+                <div id="rulesetDisplay">Langton's Ant</div>
+                <div class="stat-line">
+                    <span style="font-weight: bold;">Performance:</span>
+                    <span id="speedOverlay">Loading...</span>
+                </div>
+                <pre id="ruleSummary"></pre>
+            </div>
+        </div>
+        <div id="hotkeyOverlay" class="hud-panel glass-overlay">
+            [R] Randomize<br>
+            [1/2] Cycle Rules<br>
+            [S] Show/Hide<br>
+            [C] Color<br>
+            [Space] Pause<br>
+            [3] Reset<br>
+            [9 / 0] Speed -/+<br>
+            [5] Speed - by 100<br>
+            [8] Speed + by 100<br>
+            [G] Grid [U] Parallax
+        </div>
+        <div id="controls" class="minimized">
+            <div class="panel-header">
+                <h2 class="panel-title" style="margin: 0;">Controls</h2>
+                <button id="showHideBtn" class="secondary-btn" style="padding: 2px 8px; font-size: 0.8em;">Show</button>
+            </div>
+            <div id="controls-content">
+                <div class="control-group">
+                    <label>Simulation</label>
+                    <div class="main-actions">
+                        <button id="pauseBtn">Pause</button>
+                        <button id="resetBtn">Reset</button>
+                        <button id="stepBtn">Step</button>
+                    </div>
+                    <div class="control-group">
+                        <label>Speed: <span id="speedDisplay">11</span></label>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <input type="range" id="speedSlider" min="1" max="10000" value="11" />
+                        </div>
+                        <div class="main-actions" style="margin-top:6px;">
+                            <button id="fullSpeedBtn" class="accent-btn">Full Speed</button>
+                            <button id="resetSpeedBtn" class="accent-btn">Reset</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>History</label>
+                    <div class="main-actions">
+                        <button id="undoBtn" disabled>Undo</button>
+                        <button id="redoBtn" disabled>Redo</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Rules</label>
+                    <select id="rulePreset"></select>
+                    <div style="display: flex; gap: 5px; margin-top:5px;">
+                        <button id="randomizeBtn" class="accent-btn" style="flex: 1;">Randomize!</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Ants</label>
+                    <div class="main-actions">
+                        <button id="addAntBtn">+</button>
+                        <button id="removeAntBtn">-</button>
+                        <select id="spawnMode">
+                            <option value="center" selected>Center</option>
+                            <option value="linear">Linear</option>
+                            <option value="cascade">Cascade</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Initial Facing</label>
+                        <select id="initialFacing">
+                            <option value="0">North</option>
+                            <option value="1">East</option>
+                            <option value="2">South</option>
+                            <option value="3">West</option>
+                            <option value="random">Random</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Theme</label>
+                    <select id="themeSelect" style="display: none;"></select>
+                    <button id="generateRandomThemeBtn"
+                        style="margin-top: 5px; width: 100%;">Random Theme</button>
+                    <div id="colorPickerContainer" class="color-picker-container"></div>
+                </div>
+
+                <div class="control-group" id="exportPanel">
+                    <label>Export / Import</label>
+                    <div class="main-actions">
+                        <button id="exportJsonBtn">Export JSON</button>
+                        <button id="importJsonBtn">Import JSON</button>
+                        <input type="file" id="importJsonInput" accept="application/json" style="display:none;" />
+                    </div>
+                    <button id="exportPngBtn" style="margin-top:6px;">Export PNG</button>
+                </div>
+
+                <div class="control-group">
+                    <label>Display</label>
+                    <label><input type="checkbox" id="gridToggle"> Show Grid</label>
+                    <label><input type="checkbox" id="parallaxToggle"> 3D Parallax</label>
+                    <label><input type="checkbox" id="smoothColorsToggle"> Smooth Colors</label>
+                    <label><input type="checkbox" id="heatmapToggle"> Heatmap Overlay</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="main.js"></script>
+</body>
+
+</html>
