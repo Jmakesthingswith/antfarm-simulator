@@ -35,6 +35,7 @@ const appState = {
     gridRenderRequested: false,
     forceFullRedraw: false,
     parallaxFrames: 0,
+    parallaxMode: 'off',
     strictCenterSpawn: false,
     overlaysHidden: false
 };
@@ -155,7 +156,8 @@ function getSnapshot() {
         stepsPerSecond: appState.stepsPerSecond,
         renderMode: appState.renderer ? appState.renderer.renderMode : 'default',
         showGrid: appState.renderer ? appState.renderer.showGrid : false,
-        use3D: appState.renderer ? appState.renderer.use3D : false
+        use3D: appState.parallaxMode !== 'off',
+        parallaxMode: appState.parallaxMode
     };
 }
 
@@ -185,12 +187,14 @@ function applySnapshot(snapshot) {
     }
     renderRuleSummary();
     renderer.setShowGrid(Boolean(snapshot.showGrid));
-    renderer.set3D(Boolean(snapshot.use3D));
+    const snapshotParallaxMode = snapshot.parallaxMode
+        ? snapshot.parallaxMode
+        : (snapshot.use3D ? 'mouse' : 'off');
+    setParallaxMode(snapshotParallaxMode);
     captureStartState();
     requestRender({ grid: true, forceFullRedraw: true });
     processRenderQueue();
     renderRuleSummary();
-    updateHotkeyOverlay();
 }
 
 function updateUndoRedoUI() {
@@ -201,6 +205,40 @@ function updateUndoRedoUI() {
 function updateStrictCenterUI() {
     if (!strictCenterBtn) return;
     strictCenterBtn.textContent = appState.strictCenterSpawn ? 'Strict Centre Spawn: On' : 'Strict Centre Spawn: Off';
+}
+
+function setParallaxMode(mode) {
+    if (!appState.renderer) return;
+    const validModes = ['off', 'mouse'];
+    const nextMode = validModes.includes(mode) ? mode : 'off';
+    const parallaxToggle = document.getElementById('parallaxToggle');
+    const previousMode = appState.parallaxMode;
+    appState.parallaxMode = nextMode;
+
+    const enableParallax = nextMode !== 'off';
+    appState.renderer.set3D(enableParallax);
+
+    if (!enableParallax) {
+        appState.renderer.setParallaxOffset(0, 0);
+        appState.parallaxFrames = 0;
+    } else if (previousMode !== nextMode) {
+        appState.renderer.setParallaxOffset(0, 0);
+    } else {
+        // Auto-disable grid when any parallax is active
+        const gridToggle = document.getElementById('gridToggle');
+        if (gridToggle && gridToggle.checked) {
+            gridToggle.checked = false;
+            if (typeof gridOverlay !== 'undefined') {
+                gridOverlay.classList.remove('visible');
+            }
+        }
+    }
+
+    if (parallaxToggle) parallaxToggle.checked = nextMode === 'mouse';
+
+    updateHotkeyOverlay();
+    requestRender();
+    processRenderQueue();
 }
 
 function setOverlayVisibility(show) {
@@ -267,9 +305,8 @@ function init() {
 
     // Sync UI with Renderer Default
     const parallaxToggle = document.getElementById('parallaxToggle');
-    if (parallaxToggle) {
-        parallaxToggle.checked = appState.renderer.use3D;
-    }
+    if (parallaxToggle) parallaxToggle.checked = false;
+    setParallaxMode('off');
 
     // Sync Grid State
     if (gridToggle) {
@@ -477,7 +514,8 @@ function buildExportPayload() {
         renderMode: appState.renderer.renderMode,
         seed: appState.seed,
         showGrid: appState.renderer.showGrid,
-        use3D: appState.renderer.use3D
+        use3D: appState.parallaxMode !== 'off',
+        parallaxMode: appState.parallaxMode
     };
 }
 
@@ -551,10 +589,11 @@ function applyImportPayload(data) {
         appState.renderer.setCustomPalette([...data.palette]);
         if (themeSelect) themeSelect.value = "Custom";
         appState.renderer.setShowGrid(Boolean(data.showGrid));
-        appState.renderer.set3D(Boolean(data.use3D));
+        const importParallaxMode = data.parallaxMode
+            ? data.parallaxMode
+            : (data.use3D ? 'mouse' : 'off');
+        setParallaxMode(importParallaxMode);
         if (gridToggle) gridToggle.checked = appState.renderer.showGrid;
-        const parallaxToggle = document.getElementById('parallaxToggle');
-        if (parallaxToggle) parallaxToggle.checked = appState.renderer.use3D;
         updateColorPicker();
         renderRuleSummary();
         appState.sim.markAllCellsDirty();
@@ -717,29 +756,12 @@ function setupControls() {
     if (parallaxToggle) {
         // 1. The Listener
         parallaxToggle.addEventListener('change', (e) => {
-            renderer.set3D(e.target.checked);
-            requestRender({ grid: false });
-            processRenderQueue();
-            updateHotkeyOverlay();
-
-            // Auto-disable grid if 3D is enabled
             if (e.target.checked) {
-                const gridToggle = document.getElementById('gridToggle');
-
-                // Check if grid exists and is on
-                if (gridToggle && gridToggle.checked) {
-                    gridToggle.checked = false;
-
-                    // Safe check for the overlay
-                    if (typeof gridOverlay !== 'undefined') {
-                        gridOverlay.classList.remove('visible');
-                    } // Closes "if (typeof...)"
-                } // Closes "if (gridToggle...)"
-            } // Closes "if (e.target.checked)"
-        }); // <--- Closes the Event Listener
-
-        // 2. The "Ignition" (Runs once on startup)
-        renderer.set3D(parallaxToggle.checked);
+                setParallaxMode('mouse');
+            } else if (appState.parallaxMode === 'mouse') {
+                setParallaxMode('off');
+            }
+        });
 
     } // <--- Closes the main "if (parallaxToggle)"
 
@@ -1095,7 +1117,7 @@ function setupControls() {
 
     // Parallax Mouse Tracking
     document.addEventListener('mousemove', (e) => {
-        if (!renderer.use3D) return;
+        if (appState.parallaxMode !== 'mouse') return;
 
         // Calculate normalized position (-1 to 1) from center of screen
         const centerX = window.innerWidth / 2;
@@ -1199,11 +1221,7 @@ function setupControls() {
                 }
                 break;
             case 'u': // Toggle Parallax
-                if (parallaxToggle) {
-                    parallaxToggle.checked = !parallaxToggle.checked;
-                    parallaxToggle.dispatchEvent(new Event('change'));
-                    updateHotkeyOverlay();
-                }
+                setParallaxMode(appState.parallaxMode === 'mouse' ? 'off' : 'mouse');
                 break;
             case 'h': // Toggle HUD/Overlays
                 setOverlayVisibility(appState.overlaysHidden);
@@ -1341,7 +1359,7 @@ function updateHotkeyOverlay() {
     if (!overlay) return;
 
     const isPausedText = appState.isPaused ? '⏵ Resume' : '⏸ Pause';
-    const is3DText = appState.renderer.use3D ? '🌀 Mouse Parallax: ON' : '⬜ Mouse Parallax: OFF';
+    const is3DText = appState.parallaxMode === 'mouse' ? '🌀 Mouse Parallax: ON' : '⬜ Mouse Parallax: OFF';
     const gridText = appState.renderer.showGrid ? '⊞ Grid: ON' : '⊞ Grid: OFF';
     overlay.innerHTML = `
         <strong style="color: #00ff88;">Quick Keys</strong><br>
