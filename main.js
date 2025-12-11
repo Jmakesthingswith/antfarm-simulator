@@ -11,9 +11,9 @@ import { PRESETS } from './presets.js';
 import { cloneStructured } from './utils.js';
 
 // Configuration
-const GRID_WIDTH = 135;
-const GRID_HEIGHT = 90;
-const SPEED_MIN = 1;
+const GRID_WIDTH = 160;
+const GRID_HEIGHT = 100;
+const SPEED_MIN = 10;
 const SPEED_MAX = 10000;
 let paletteEditSnapshot = null;
 
@@ -21,7 +21,7 @@ const appState = {
     sim: null,
     renderer: null,
     isPaused: false,
-    stepsPerSecond: 11,
+    stepsPerSecond: 10,
     animationId: null,
     currentRules: null,
     startState: [],
@@ -674,7 +674,7 @@ function setupControls() {
     }
     if (resetSpeedBtn) {
         resetSpeedBtn.addEventListener('click', () => {
-            setStepsPerSecond(11, true, 'Reset Speed');
+            setStepsPerSecond(10, true, 'Reset Speed');
         });
     }
 
@@ -898,7 +898,7 @@ function setupControls() {
             requestRender({ grid: true, forceFullRedraw: true });
 
             // Reset Speed
-            setStepsPerSecond(11);
+            setStepsPerSecond(10);
 
             let newRules;
             let strategy;
@@ -1073,8 +1073,11 @@ function setupControls() {
         // Calculate new scale
         let newScale = Math.floor(renderer.cellSize + delta);
 
-        // Dynamic Minimum Scale (Fit to Height - Integer Floor)
-        const minScale = Math.max(1, Math.floor(canvasContainer.clientHeight / GRID_HEIGHT));
+        // Dynamic Minimum Scale: just under the best-fit of both dimensions
+        const fitHeight = canvasContainer.clientHeight / GRID_HEIGHT;
+        const fitWidth = canvasContainer.clientWidth / GRID_WIDTH;
+        const fitScale = Math.min(fitHeight, fitWidth);
+        const minScale = Math.max(1, Math.floor(fitScale * 1.1)); // 1% below perfect fit to avoid edge clipping
 
         // Clamp
         if (newScale < minScale) newScale = minScale;
