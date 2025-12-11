@@ -104,6 +104,7 @@ Improvements:
 - Heatmap mode will likely be removed
 - Some refactoring and cleanup
 - Review the randomizer and preset libraries, and expand colour-related features
+- Add a JSON Ruleset gallery folder and populate with exported rulesets
 
 ---
 
