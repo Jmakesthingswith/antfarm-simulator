@@ -223,7 +223,6 @@ class GridRenderer {
         } else if (forceRedraw) {
             // Full Redraw of Offscreen Canvas
             ctx.clearRect(0, 0, this.offscreenCanvas.width, this.offscreenCanvas.height);
-            // We NO LONGER fill with background color here. Transparency for state 0.
 
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {

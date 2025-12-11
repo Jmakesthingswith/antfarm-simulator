@@ -112,8 +112,6 @@ class AntSimulation {
                 const index = y * width + x;
                 const currentColor = grid[index];
 
-                // 2. Sensory Input removed (Simplified Model)
-
                 // 3. Simple Rule Resolution
                 const stateRules = rules[state];
                 if (!stateRules) continue;

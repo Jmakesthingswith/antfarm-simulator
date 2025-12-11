@@ -650,8 +650,6 @@ function setStepsPerSecond(value, recordHistory = false, label = 'Speed Change')
 function setupControls() {
     const { sim, renderer } = appState;
 
-    // speedControl listener removed (Hotkeys only)
-
     pauseBtn.addEventListener('click', () => {
         appState.isPaused = !appState.isPaused;
         pauseBtn.textContent = appState.isPaused ? 'Resume' : 'Pause';
