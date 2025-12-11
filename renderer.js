@@ -211,10 +211,7 @@ class GridRenderer {
                         const orientation = orientations ? orientations[index] : 0;
                         this.drawTruchetCell(ctx, x, y, cellSize, state, currentPalette, paletteLen, orientation);
                     } else {
-                        let colorIndex;
-                        if (paletteLen <= 1) colorIndex = 0;
-                        else colorIndex = ((state - 1) % (paletteLen - 1)) + 1;
-
+                        const colorIndex = this.getColorIndex(state, paletteLen);
                         ctx.fillStyle = currentPalette[colorIndex];
                         ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                     }
@@ -233,10 +230,7 @@ class GridRenderer {
                             this.drawTruchetCell(ctx, x, y, cellSize, state, currentPalette, paletteLen, orientation);
                         } else {
                             // Default Block Rendering
-                            let colorIndex;
-                            if (paletteLen <= 1) colorIndex = 0;
-                            else colorIndex = ((state - 1) % (paletteLen - 1)) + 1;
-
+                            const colorIndex = this.getColorIndex(state, paletteLen);
                             ctx.fillStyle = currentPalette[colorIndex];
                             ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                         }
@@ -259,10 +253,7 @@ class GridRenderer {
         // and ALWAYS use Palette[0] (black/bg) as the secondary color for high contrast.
 
         // Primary Color Index
-        let colorIndex;
-        if (paletteLen <= 1) colorIndex = 0;
-        else colorIndex = ((state - 1) % (paletteLen - 1)) + 1;
-
+        const colorIndex = this.getColorIndex(state, paletteLen);
         const primaryColor = palette[colorIndex];
         const secondaryColor = palette[0]; // Background
 
@@ -359,6 +350,11 @@ class GridRenderer {
 
             ctx.fillRect(hx - 1, hy - 1, 2, 2);
         }
+    }
+
+    getColorIndex(state, paletteLen) {
+        if (paletteLen <= 1) return 0;
+        return ((state - 1) % (paletteLen - 1)) + 1;
     }
 }
 export { GridRenderer };
