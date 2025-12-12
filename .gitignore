@@ -1,10 +1,15 @@
 .DS_Store
 
-# Node / JS tooling
+# Node / tooling (local only)
 node_modules/
-npm-debug.log*
+package-lock.json
 yarn.lock
 pnpm-lock.yaml
-package-lock.json
+
+# Yarn PnP
+.yarn/
+.pnp.cjs
+.pnp.loader.mjs
+
 # ESLint cache
 .eslintcache
