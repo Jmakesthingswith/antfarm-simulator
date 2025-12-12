@@ -957,8 +957,7 @@ function setupControls() {
             sim.ants = []; // Clear default ant to ensure strict count control
             requestRender({ grid: true, forceFullRedraw: true });
 
-            // Reset Speed
-            setStepsPerSecond(10);
+            // Keep current speed; do not reset stepsPerSecond here
 
             let newRules;
             let strategy;

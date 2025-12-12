@@ -89,6 +89,8 @@ This rule was randomly discovered after implementing a strict spawn preset toggl
 | Early Stage | Developed Stage |
 | :---: | :---: |
 | <img src="examples/Period-20_Void-Weaver-E1.png" alt="Void Weaver Early Stage" width="350"> | <img src="examples/Period-20_Void-Weaver-E2.png" alt="Void Weaver Developed Stage" width="350"> |
+
+![Short clip to show off the Weaver](examples/Period-20.gif)
 ---
 
 More examples will be added over time in the `/examples` folder.
