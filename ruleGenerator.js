@@ -159,6 +159,7 @@ const RuleGenerators = {
     generateSymmetrical(presets) {
         const strategy = Math.random();
 
+        // Bias toward the simpler generators first, with smaller probability for preset mutation to keep outputs varied but recognizable.
         if (strategy < 0.5) {
             return this.cellularAutomata();
         } else if (strategy < 0.75) {

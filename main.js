@@ -11,8 +11,8 @@ import { PRESETS } from './presets.js';
 import { cloneStructured } from './utils.js';
 
 // Configuration
-const GRID_WIDTH = 160;
-const GRID_HEIGHT = 100;
+const GRID_WIDTH = 170;
+const GRID_HEIGHT = 110;
 const SPEED_MIN = 10;
 const SPEED_MAX = 10000;
 let paletteEditSnapshot = null;
@@ -317,7 +317,7 @@ function init() {
 
     // Initialize Renderer
     appState.renderer = new GridRenderer(canvas);
-    appState.renderer.setScale(20); // Sets initial cell size to 20px
+    appState.renderer.setScale(10); // Sets initial cell size to 28px for a larger view
     appState.renderer.resize(GRID_WIDTH, GRID_HEIGHT);
     syncTruchetMode(false);
     if (speedSlider) {
@@ -574,9 +574,11 @@ function validateImportPayload(data) {
     const orientationsIsArray = Array.isArray(data.orientations);
     if (!Array.isArray(data.ants)) return false;
     if (typeof data.width !== 'number' || typeof data.height !== 'number') return false;
-    if (data.width !== GRID_WIDTH || data.height !== GRID_HEIGHT) return false;
-    if (gridIsArray && data.grid.length !== GRID_WIDTH * GRID_HEIGHT) return false;
-    if (!orientationsIsEmpty && (!orientationsIsArray || data.orientations.length !== GRID_WIDTH * GRID_HEIGHT)) return false;
+    const loadedWidth = data.width;
+    const loadedHeight = data.height;
+    if (loadedWidth <= 0 || loadedHeight <= 0) return false;
+    if (gridIsArray && data.grid.length !== loadedWidth * loadedHeight) return false;
+    if (!orientationsIsEmpty && orientationsIsArray && data.orientations.length !== loadedWidth * loadedHeight) return false;
     return true;
 }
 
@@ -586,21 +588,34 @@ function applyImportPayload(data) {
         return;
     }
     performWithHistory('Import JSON', () => {
+        const targetWidth = GRID_WIDTH;
+        const targetHeight = GRID_HEIGHT;
+        const loadedWidth = (typeof data.width === 'number' && data.width > 0) ? data.width : targetWidth;
+        const loadedHeight = (typeof data.height === 'number' && data.height > 0) ? data.height : targetHeight;
+        const oldCenterX = loadedWidth / 2;
+        const oldCenterY = loadedHeight / 2;
+        const newCenterX = targetWidth / 2;
+        const newCenterY = targetHeight / 2;
+
         appState.currentRules = cloneStructured(data.rules);
         appState.sim.setRules(appState.currentRules);
-        appState.sim.grid = data.grid === "empty"
-            ? new Uint8Array(GRID_WIDTH * GRID_HEIGHT)
-            : new Uint8Array(data.grid);
-        appState.sim.orientations = (Array.isArray(data.orientations) && data.orientations.length === GRID_WIDTH * GRID_HEIGHT)
-            ? new Uint8Array(data.orientations)
-            : new Uint8Array(GRID_WIDTH * GRID_HEIGHT);
-        const safeAnts = cloneStructured(data.ants).map((ant) => ({
-            x: Math.max(0, Math.min(GRID_WIDTH - 1, ant.x)),
-            y: Math.max(0, Math.min(GRID_HEIGHT - 1, ant.y)),
-            facing: Math.max(0, Math.min(3, ant.facing || 0)),
-            state: Math.max(0, ant.state || 0)
-        }));
-        appState.sim.ants = safeAnts;
+        // Always rebuild grid/orientations to match current dimensions
+        appState.sim.grid = new Uint8Array(targetWidth * targetHeight);
+        appState.sim.orientations = new Uint8Array(targetWidth * targetHeight);
+
+        appState.sim.ants = [];
+        const safeAnts = Array.isArray(data.ants) ? data.ants : [];
+        for (const ant of safeAnts) {
+            const facing = Math.max(0, Math.min(3, ant.facing || 0));
+            const state = Math.max(0, ant.state || 0);
+            const deltaX = ant.x - oldCenterX;
+            const deltaY = ant.y - oldCenterY;
+            const newX = Math.max(0, Math.min(targetWidth - 1, Math.floor(newCenterX + deltaX)));
+            const newY = Math.max(0, Math.min(targetHeight - 1, Math.floor(newCenterY + deltaY)));
+            const newAnt = appState.sim.addAnt(newX, newY, facing);
+            newAnt.state = state;
+            if (ant.spawnLabel) newAnt.spawnLabel = ant.spawnLabel;
+        }
         appState.sim.stepCount = data.stepCount || 0;
         if (typeof data.stepsPerSecond === 'number') {
             setStepsPerSecond(data.stepsPerSecond);
@@ -622,6 +637,7 @@ function applyImportPayload(data) {
         updateColorPicker();
         renderRuleSummary();
         appState.sim.markAllCellsDirty();
+        appState.renderer.resize(targetWidth, targetHeight);
         captureStartState();
         requestRender({ grid: true, forceFullRedraw: true });
         processRenderQueue();
@@ -1108,7 +1124,6 @@ function setupControls() {
             });
         });
     }
-    // 3D Toggle Handling Removed
 
     // Zoom Handling
     const canvasContainer = document.getElementById('canvas-container');
@@ -1125,11 +1140,11 @@ function setupControls() {
         const fitHeight = canvasContainer.clientHeight / GRID_HEIGHT;
         const fitWidth = canvasContainer.clientWidth / GRID_WIDTH;
         const fitScale = Math.min(fitHeight, fitWidth);
-        const minScale = Math.max(1, Math.floor(fitScale * 1.1)); // 1% below perfect fit to avoid edge clipping
+        const minScale = Math.max(1, Math.floor(fitScale * 1.2)); // 1% below perfect fit to avoid edge clipping
 
         // Clamp
         if (newScale < minScale) newScale = minScale;
-        if (newScale > 32) newScale = 32;
+        if (newScale > 34) newScale = 32;
 
         if (newScale !== renderer.cellSize) {
             renderer.setScale(newScale);

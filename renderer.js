@@ -77,7 +77,7 @@ class GridRenderer {
     }
 
     setScale(newScale) {
-        this.cellSize = Math.max(1, Math.floor(Math.min(32, newScale)));
+        this.cellSize = Math.max(1, Math.floor(Math.min(28, newScale)));
         this.resize(this.width, this.height);
     }
 
@@ -286,6 +286,7 @@ class GridRenderer {
         const height = this.canvas.height;
         const cellSize = this.cellSize;
 
+        // Blur is intentionally disabled here; palette[0] is the background and we rely on crisp pixels for both modes.
         ctx.filter = 'none';
 
         // Clear Main Canvas
@@ -353,6 +354,7 @@ class GridRenderer {
     }
 
     getColorIndex(state, paletteLen) {
+        // Palette slot 0 is always the background; active states begin at 1 and wrap across the remaining entries.
         if (paletteLen <= 1) return 0;
         return ((state - 1) % (paletteLen - 1)) + 1;
     }

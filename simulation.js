@@ -100,7 +100,7 @@ class AntSimulation {
 
             // History Snapshot
             if (this.stepCount % this.SNAPSHOT_INTERVAL === 0) {
-                this.snapshot();
+                this.snapshot(); // Periodic checkpoint for undo/redo without tracking every single step
             }
 
             // Iterate through all ants
@@ -124,10 +124,7 @@ class AntSimulation {
                     grid[index] = rule.write;
                     this.dirtyCells.add(index);
                 }
-                // Even if color is same, we might want to redraw to overwrite ant? 
-                // Yes, strictly speaking, the ant moves, so the cell under it needs to be redrawn 
-                // to its grid color (whether changed or not).
-                // So let's always add to dirtyCells if visited.
+                // Even if the color doesn't change, the ant vacates this cell; mark it dirty so rendering restores the base grid color.
                 this.dirtyCells.add(index);
                 if (toggleOrientationOnVisit && orientations.length === grid.length) {
                     orientations[index] = 1 - orientations[index];
