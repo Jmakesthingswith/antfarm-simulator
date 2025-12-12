@@ -1,0 +1,29 @@
+{
+  "name": "antfarm",
+  "version": "1.0.0",
+  "description": "This is a small browser project that simulates ant-like agents (turmites) moving across a grid. Each ant follows rules based on its current state and the colour of the cell it is standing on. The simulation produces a wide range of patterns, from simple trails to more complex structures.",
+  "main": "main.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jmakesthingswith/antfarm-simulator.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Jmakesthingswith/antfarm-simulator/issues"
+  },
+  "homepage": "https://github.com/Jmakesthingswith/antfarm-simulator#readme",
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0"
+  }
+}

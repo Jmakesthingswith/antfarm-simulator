@@ -60,7 +60,6 @@ canvas {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
-/* Add this to your style.css - replaces existing #hotkeyOverlay styles */
 
 #hotkeyOverlay {
     position: absolute;
@@ -154,8 +153,8 @@ canvas {
 #rulesetDisplay {
     font-size: 1.2em;
     font-weight: bold;
-    color: rgba(255, 255, 255, 0.9);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
 }
 
 #speedOverlay {
@@ -215,6 +214,8 @@ canvas {
     margin: 0;
     /* Ensure the title is slightly separated from the button */
     margin-right: 15px;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
 }
 
 
@@ -443,7 +444,6 @@ details.config-details summary:hover {
     overflow-y: auto;
     transition: all 0.3s ease;
 }
-
 
 #showHideBtn {
     /* Resetting previous absolute positioning */

@@ -50,7 +50,7 @@ const appState = {
     parallaxFrames: 0,
     parallaxMode: 'off',
     strictSpawnIndex: 0,
-    overlaysHidden: false
+    hotkeysHidden: false
 };
 
 /**
@@ -263,13 +263,11 @@ function setParallaxMode(mode) {
     processRenderQueue();
 }
 
-function setOverlayVisibility(show) {
-    const statsOverlay = document.getElementById('statsOverlay');
+function setHotkeyOverlayVisibility(show) {
     const hotkeyOverlay = document.getElementById('hotkeyOverlay');
     const displayValue = show ? '' : 'none';
-    if (statsOverlay) statsOverlay.style.display = displayValue;
     if (hotkeyOverlay) hotkeyOverlay.style.display = displayValue;
-    appState.overlaysHidden = !show;
+    appState.hotkeysHidden = !show;
 }
 
 function pushHistoryAction(label, undoFn, redoFn) {
@@ -381,7 +379,7 @@ function init() {
     // Force a redraw after a short delay to ensure everything is settled
     requestRender({ grid: true, forceFullRedraw: true });
     processRenderQueue();
-    setOverlayVisibility(true);
+    setHotkeyOverlayVisibility(true);
 }
 
 function populatePresets() {
@@ -1252,7 +1250,7 @@ function setupControls() {
                 setParallaxMode(appState.parallaxMode === 'mouse' ? 'off' : 'mouse');
                 break;
             case 'h': // Toggle HUD/Overlays
-                setOverlayVisibility(appState.overlaysHidden);
+                setHotkeyOverlayVisibility(appState.hotkeysHidden);
                 updateHotkeyOverlay();
                 break;
         }
@@ -1481,7 +1479,7 @@ function updateHotkeyOverlay() {
         [W] Reset Speed<br>
         [G] ${gridText}<br>
         [U] ${is3DText}<br>
-        [H] Hide/Show HUD<br>
+        [H] Hide/Show Quick Keys<br>
         [S] Show/Hide Controls Panel
     `.trim();
 }
