@@ -120,22 +120,22 @@
   "grid": "empty",
   "ants": [
     {
-      "x": 147,
-      "y": 97,
+      "x": 110,
+      "y": 78,
       "facing": 1,
       "state": 0
     },
     {
-      "x": 147,
-      "y": 100,
+      "x": 110,
+      "y": 79,
       "facing": 3,
       "state": 0
     }
   ],
   "stepCount": 0,
-  "stepsPerSecond": 250,
-  "width": 300,
-  "height": 200,
+  "stepsPerSecond": 700,
+  "width": 240,
+  "height": 150,
   "renderMode": "default",
   "seed": 1765507108624,
   "showGrid": false,

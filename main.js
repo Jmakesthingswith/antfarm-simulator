@@ -11,10 +11,10 @@ import { PRESETS } from './presets.js';
 import { cloneStructured } from './utils.js';
 
 // Configuration
-const GRID_WIDTH = 170;
-const GRID_HEIGHT = 110;
+const GRID_WIDTH = 240;
+const GRID_HEIGHT = 150;
 const SPEED_MIN = 10;
-const SPEED_MAX = 10000;
+const SPEED_MAX = 90000;
 let paletteEditSnapshot = null;
 
 const STRICT_SPAWN_PRESETS = [
@@ -93,7 +93,7 @@ class PerformanceMonitor {
                     ? `${(this.sps / 1000000).toFixed(1)}M SPS`
                     : `${this.sps} SPS`;
 
-                speedOverlay.textContent = `FPS: ${this.fps} | Sim: ${spsFormatted}`;
+                speedOverlay.textContent = `FPS: ${this.fps} | ${spsFormatted}`;
             }
         }
     }
@@ -121,7 +121,6 @@ const redoBtn = document.getElementById('redoBtn');
 const exportJsonBtn = document.getElementById('exportJsonBtn');
 const importJsonBtn = document.getElementById('importJsonBtn');
 const importJsonInput = document.getElementById('importJsonInput');
-const exportPngBtn = document.getElementById('exportPngBtn');
 const ruleSummary = document.getElementById('ruleSummary');
 const speedSlider = document.getElementById('speedSlider');
 const fullSpeedBtn = document.getElementById('fullSpeedBtn');
@@ -317,7 +316,7 @@ function init() {
 
     // Initialize Renderer
     appState.renderer = new GridRenderer(canvas);
-    appState.renderer.setScale(10); // Sets initial cell size to 28px for a larger view
+    appState.renderer.setScale(7); // Function to set initial scale
     appState.renderer.resize(GRID_WIDTH, GRID_HEIGHT);
     syncTruchetMode(false);
     if (speedSlider) {
@@ -555,14 +554,6 @@ function exportStateAsJson() {
     URL.revokeObjectURL(url);
 }
 
-function exportStateAsPng() {
-    const dataUrl = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `antfarm_snapshot_${Date.now()}.png`;
-    a.click();
-}
-
 function validateImportPayload(data) {
     if (!data || typeof data !== 'object') return false;
     if (!data.rules || typeof data.rules !== 'object') return false;
@@ -747,7 +738,7 @@ function setupControls() {
     }
     if (fullSpeedBtn) {
         fullSpeedBtn.addEventListener('click', () => {
-            setStepsPerSecond(10000, true, 'Full Speed');
+            setStepsPerSecond(90000, true, 'Full Speed');
         });
     }
     if (resetSpeedBtn) {
@@ -765,9 +756,6 @@ function setupControls() {
 
     if (exportJsonBtn) {
         exportJsonBtn.addEventListener('click', () => exportStateAsJson());
-    }
-    if (exportPngBtn) {
-        exportPngBtn.addEventListener('click', () => exportStateAsPng());
     }
     if (importJsonBtn && importJsonInput) {
         importJsonBtn.addEventListener('click', () => importJsonInput.click());
@@ -1139,11 +1127,11 @@ function setupControls() {
         const fitHeight = canvasContainer.clientHeight / GRID_HEIGHT;
         const fitWidth = canvasContainer.clientWidth / GRID_WIDTH;
         const fitScale = Math.min(fitHeight, fitWidth);
-        const minScale = Math.max(1, Math.floor(fitScale * 1.2)); // 1% below perfect fit to avoid edge clipping
+        const minScale = Math.max(1, Math.floor(fitScale * 1.2));
 
         // Clamp
         if (newScale < minScale) newScale = minScale;
-        if (newScale > 34) newScale = 32;
+        if (newScale > 40) newScale = 40;
 
         if (newScale !== renderer.cellSize) {
             renderer.setScale(newScale);
