@@ -1,1 +1,10 @@
 .DS_Store
+
+# Node / JS tooling
+node_modules/
+npm-debug.log*
+yarn.lock
+pnpm-lock.yaml
+
+# ESLint cache
+.eslintcache
