@@ -7,6 +7,7 @@
 import { AntSimulation, DIR, TURN } from './simulation.js';
 import { GridRenderer } from './renderer.js';
 import RuleGenerators from './ruleGenerator.js';
+import TruchetLab from './truchetLab.js';
 import { PRESETS } from './presets.js';
 import { cloneStructured } from './utils.js';
 
@@ -50,7 +51,8 @@ const appState = {
     parallaxFrames: 0,
     parallaxMode: 'off',
     strictSpawnIndex: 0,
-    hotkeysHidden: false
+    hotkeysHidden: false,
+    lastTruchetDesign: null
 };
 
 /**
@@ -368,8 +370,6 @@ function init() {
         });
     }
 
-    const facingSelect = document.getElementById('initialFacing');
-    // Removed outward/clockwise injections to keep facing options minimal.
 
     // Start Loop
     loop();
@@ -1239,6 +1239,9 @@ function setupControls() {
                     setStepsPerSecond(11, true, 'Reset Speed');
                 }
                 break;
+            case 't': // Truchet Mode reroll
+                performWithHistory('Truchet Mode', () => rollTruchetDesign());
+                break;
             case 'g': // Toggle Grid
                 if (gridToggle) {
                     gridToggle.checked = !gridToggle.checked;
@@ -1430,6 +1433,49 @@ function respawnWithJitter() {
     ant.state = spawn.state;
 }
 
+function applyTruchetDesign(design) {
+    const { sim, renderer } = appState;
+    if (!design || !design.rules || !sim || !renderer) return;
+
+    // Reset and respawn ants to showcase the new rule cleanly
+    sim.reset();
+    appState.currentRules = design.rules;
+    sim.setRules(design.rules);
+    sim.ants = [];
+    const antChoices = [2, 3, 3, 4, 5];
+    const antCount = antChoices[Math.floor(Math.random() * antChoices.length)];
+    for (let i = 0; i < antCount; i++) {
+        const spawn = generateSpawnPoint();
+        const ant = sim.addAnt(spawn.x, spawn.y, spawn.facing);
+        ant.state = spawn.state;
+    }
+    renderer.setRenderMode('truchet');
+    syncTruchetMode(true);
+
+    const numColors = Object.keys(design.rules[0]).length;
+    const palette = renderer.generateRandomPalette(numColors);
+    renderer.setCustomPalette(palette);
+    if (themeSelect) themeSelect.value = "Custom";
+
+    rulePreset.selectedIndex = -1;
+    const label = design.label || 'Hidden Truchet';
+    updateRulesetTitle(`Truchet: ${label}`);
+    appState.lastTruchetDesign = {
+        label,
+        rules: cloneStructured(design.rules)
+    };
+
+    renderRuleSummary();
+    requestRender({ grid: true, forceFullRedraw: true });
+    processRenderQueue();
+    captureStartState();
+}
+
+function rollTruchetDesign() {
+    const design = TruchetLab.nextTruchetDesign(appState.lastTruchetDesign);
+    applyTruchetDesign(design);
+}
+
 function syncTruchetMode(randomize = false) {
     const enable = appState.renderer && appState.renderer.renderMode === 'truchet';
     if (!appState.sim) return;
@@ -1472,6 +1518,7 @@ function updateHotkeyOverlay() {
         [1/2] Cycle Presets<br>
         [3] Restart Current Rule-Set<br>
         [C] Randomize Colour<br>
+        [T] Truchet Mode / Reroll<br>
         [Space] ${isPausedText}<br>
         [9/0] -/+ 5 Small Speed Change<br>
         [7/8] -/+ 100 Large Speed Change<br>

@@ -119,49 +119,6 @@ const PRESETS = {
                 5: { write: 0, turn: TURN.L, nextState: 0 }
             }
         }
-    },
-    "Truchet Maze": {
-        description: "Creates a maze-like structure reminiscent of Truchet tiles.",
-        renderMode: 'truchet',
-        rules: {
-            // State 0: Explorer (Right-biased)
-            0: {
-                0: { write: 1, turn: TURN.R, nextState: 0 },
-                1: { write: 2, turn: TURN.L, nextState: 1 },
-                2: { write: 3, turn: TURN.R, nextState: 0 },
-                3: { write: 4, turn: TURN.L, nextState: 1 },
-                4: { write: 0, turn: TURN.R, nextState: 0 }
-            },
-            // State 1: Chaos (Left-biased)
-            1: {
-                0: { write: 1, turn: TURN.L, nextState: 1 },
-                1: { write: 2, turn: TURN.R, nextState: 0 },
-                2: { write: 3, turn: TURN.L, nextState: 1 },
-                3: { write: 4, turn: TURN.R, nextState: 0 },
-                4: { write: 0, turn: TURN.L, nextState: 1 }
-            }
-        }
-    },
-    "Truchet Tiling": {
-        description: "Generates diagonal patterns similar to Truchet tilings.",
-        renderMode: 'truchet',
-        rules: {
-            // Forces diagonal movement by alternating L/R turns on successive colors
-            0: {
-                0: { write: 1, turn: TURN.R, nextState: 1 },
-                1: { write: 2, turn: TURN.L, nextState: 0 },
-                2: { write: 3, turn: TURN.R, nextState: 1 },
-                3: { write: 4, turn: TURN.L, nextState: 0 },
-                4: { write: 0, turn: TURN.R, nextState: 1 }
-            },
-            1: {
-                0: { write: 1, turn: TURN.L, nextState: 0 },
-                1: { write: 2, turn: TURN.R, nextState: 1 },
-                2: { write: 3, turn: TURN.L, nextState: 0 },
-                3: { write: 4, turn: TURN.R, nextState: 1 },
-                4: { write: 0, turn: TURN.L, nextState: 0 }
-            }
-        }
     }
 };
 
