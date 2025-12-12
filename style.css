@@ -445,12 +445,6 @@ details.config-details summary:hover {
 }
 
 
-
-.control-header {
-    /* Deprecated, replaced by .panel-header */
-    display: none;
-}
-
 #showHideBtn {
     /* Resetting previous absolute positioning */
     position: static;
