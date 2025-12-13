@@ -507,13 +507,17 @@ function renderRuleSummary() {
 }
 
 function buildExportPayload() {
+
+    const antsToExport = appState.startState.length > 0 
+        ? appState.startState 
+        : appState.sim.ants;
     return {
         rules: appState.currentRules,
         palette: appState.renderer.currentPalette,
         // Export a sentinel instead of full grid data to keep files lightweight
         grid: "empty",
-        ants: appState.sim.ants,
-        stepCount: appState.sim.stepCount,
+        ants: antsToExport,
+        stepCount: 0,
         stepsPerSecond: appState.stepsPerSecond,
         width: GRID_WIDTH,
         height: GRID_HEIGHT,
