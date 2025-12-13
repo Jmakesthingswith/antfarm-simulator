@@ -1463,10 +1463,7 @@ function syncTruchetMode(randomize = false) {
     }
 }
 
-/**
- * Helper Function: Restores ants from the saved state or creates a new deterministic spawn.
- * Place this function at the bottom of your main.js file, OUTSIDE of setupControls().
- */
+
 function restoreInitialAnts() {
     const sim = appState.sim;
     
