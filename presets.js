@@ -9,6 +9,27 @@ import { cloneStructured } from './utils.js';
 
 const cloneRules = (rules) => cloneStructured(rules);
 
+// Helper to define starting ants for presets that need multiple agents.
+function createPresetAnts(count = 1, spacing = 2) {
+    const defaultWidth = 240;
+    const defaultHeight = 150;
+    const centerX = Math.floor(defaultWidth / 2);
+    const centerY = Math.floor(defaultHeight / 2);
+    const ants = [];
+
+    for (let i = 0; i < count; i++) {
+        const offset = (i - Math.floor((count - 1) / 2)) * spacing;
+        ants.push({
+            x: centerX + offset,
+            y: centerY,
+            facing: i % 2 === 0 ? 0 : 2, // Alternate directions for symmetry
+            state: 0
+        });
+    }
+
+    return ants;
+}
+
 const PRESETS = {
     "Langton's Ant": {
         description: "The classic chaotic agent. 2 Colors, RL.",
@@ -80,7 +101,9 @@ const PRESETS = {
                 1: { write: 2, turn: TURN.L, nextState: 0 },
                 2: { write: 0, turn: TURN.U, nextState: 0 }
             }
-        }
+        },
+        ants: createPresetAnts(2)
+        
     },
     "Fractal Snowflake": {
         description: "Generates a fractal-like snowflake pattern.",
