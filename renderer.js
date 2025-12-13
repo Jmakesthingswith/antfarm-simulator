@@ -101,38 +101,40 @@ class GridRenderer {
         const usedColors = new Set();
 
         // 1. Generate Background (Color 0) - Constant Black
-        const background = '#000000ff';
+        const background = '#1a1a1a';
         palette.push(background);
         usedColors.add(normalize(background));
 
         // 2. Generate Active Colors (ensure no duplicates)
         for (let i = 1; i < count; i++) {
             let hue, sat, light, candidate, attempts = 0;
+            const TARGET_SAT = 55 + Math.random() * 15; // Range: 55% to 70%
+            const TARGET_LIGHT = 35 + Math.random() * 10; // Range: 35% to 45% (Darker)
             do {
                 if (strategy === 'analogous') {
                     hue = (baseHue + (i * 20) + attempts * 7) % 360;
-                    sat = 70 + Math.random() * 30;
-                    light = 50 + Math.random() * 20;
+                    sat = 60 + Math.random() * 15;
+                    light = 40 + Math.random() * 10;
                 } else if (strategy === 'complementary') {
                     hue = ((i % 2 === 0) ? baseHue : (baseHue + 180)) % 360;
                     hue = (hue + attempts * 11) % 360;
-                    sat = 80;
-                    light = 60;
+                    sat = TARGET_SAT;
+                    light = TARGET_LIGHT;
                 } else if (strategy === 'triadic') {
                     hue = (baseHue + (i * 120) + attempts * 13) % 360;
-                    sat = 80;
-                    light = 60;
+                    sat = TARGET_SAT;
+                    light = TARGET_LIGHT;
                 } else { // Vibrant / Random Pop
                     hue = (baseHue + (i * 90) + attempts * 17) % 360; // Wide spread with jitter
-                    sat = 90;
-                    light = 60;
+                    sat = 70 + Math.random() * 20;
+                    light = TARGET_LIGHT;
                 }
                 candidate = `hsl(${hue}, ${sat}%, ${light}%)`;
                 attempts++;
                 // After several attempts, fall back to a random hue to force uniqueness
                 if (attempts > 8) {
                     const fallbackHue = Math.floor(Math.random() * 360);
-                    candidate = `hsl(${fallbackHue}, 85%, 60%)`;
+                    candidate = `hsl(${fallbackHue}, 60%, 40%)`;
                 }
             } while (usedColors.has(normalize(candidate)) && attempts < 12);
 
@@ -247,15 +249,21 @@ class GridRenderer {
     drawTruchetCell(ctx, x, y, size, state, palette, paletteLen, orientation = 0) {
         // State 0 is transparent (handled by clearRect)
         // States 1-4 correspond to rotations/splits
-
-        // 1. Determine Foreground/Background Colors
-        // For variety, let's use the state to pick the primary color
-        // and ALWAYS use Palette[0] (black/bg) as the secondary color for high contrast.
+        if (state === 0) {
+            return;
+        }
 
         // Primary Color Index
         const colorIndex = this.getColorIndex(state, paletteLen);
         const primaryColor = palette[colorIndex];
         const secondaryColor = palette[0]; // Background
+
+        const px = x * size;
+        const py = y * size;
+
+        // Draw Background
+        ctx.fillStyle = secondaryColor;
+        ctx.fillRect(px, py, size, size);
 
         ctx.fillStyle = primaryColor;
 
