@@ -4,7 +4,7 @@
  * Orchestrates the simulation and renderer.
  */
 
-import { AntSimulation, DIR, TURN } from './simulation.js';
+import { AntSimulation, TURN } from './simulation.js';
 import { GridRenderer } from './renderer.js';
 import RuleGenerators from './ruleGenerator.js';
 import TruchetLab from './truchetLab.js';
@@ -17,8 +17,8 @@ const GRID_HEIGHT = 150;
 const SPEED_MIN = 10;
 const SPEED_MAX = 90000;
 let paletteEditSnapshot = null;
-
 const STRICT_SPAWN_PRESETS = [
+   
     { id: 'loose', label: 'Strict Spawn: Loose (Random Jitter)' },
     { id: 'center', label: 'Strict Spawn: Center Point' },
     { id: 'line', label: 'Strict Spawn: Center Line' },
@@ -94,7 +94,6 @@ class PerformanceMonitor {
                 const spsFormatted = (this.sps > 1000000)
                     ? `${(this.sps / 1000000).toFixed(1)}M SPS`
                     : `${this.sps} SPS`;
-
                 speedOverlay.textContent = `FPS: ${this.fps} | ${spsFormatted}`;
             }
         }
@@ -127,7 +126,6 @@ const ruleSummary = document.getElementById('ruleSummary');
 const speedSlider = document.getElementById('speedSlider');
 const fullSpeedBtn = document.getElementById('fullSpeedBtn');
 const resetSpeedBtn = document.getElementById('resetSpeedBtn');
-const exportPanel = document.getElementById('exportPanel');
 const strictCenterBtn = document.getElementById('strictCenterBtn');
 
 function requestRender({ grid = false, forceFullRedraw = false } = {}) {
@@ -247,22 +245,13 @@ function setParallaxMode(mode) {
         appState.parallaxFrames = 0;
     } else if (previousMode !== nextMode) {
         appState.renderer.setParallaxOffset(0, 0);
-    } else {
-        // Auto-disable grid when any parallax is active
-        const gridToggle = document.getElementById('gridToggle');
-        if (gridToggle && gridToggle.checked) {
-            gridToggle.checked = false;
-            if (typeof gridOverlay !== 'undefined') {
-                gridOverlay.classList.remove('visible');
-            }
-        }
-    }
-
+    } 
+    
     if (parallaxToggle) parallaxToggle.checked = nextMode === 'mouse';
 
-    updateHotkeyOverlay();
-    requestRender();
-    processRenderQueue();
+        updateHotkeyOverlay();
+        requestRender();
+        processRenderQueue();
 }
 
 function setHotkeyOverlayVisibility(show) {
@@ -1055,19 +1044,6 @@ function setupControls() {
         });
     });
 
-    function populateThemes() {
-        themeSelect.innerHTML = '';
-
-        // Removed "Generate Random" option from dropdown
-
-        for (const name of Object.keys(renderer.palettes)) {
-            const option = document.createElement('option');
-            option.value = name;
-            option.textContent = name;
-            themeSelect.appendChild(option);
-        }
-    }
-
     themeSelect.addEventListener('change', (e) => {
         performWithHistory('Theme Change', () => {
             renderer.setPalette(e.target.value);
@@ -1493,14 +1469,6 @@ function syncTruchetMode(randomize = false) {
     }
 }
 
-function restoreStartState() {
-    if (!appState.sim) return;
-    appState.sim.grid = appState.startGrid ? appState.startGrid.slice() : new Uint8Array(GRID_WIDTH * GRID_HEIGHT);
-    appState.sim.ants = appState.startState.map(ant => ({ ...ant, state: ant.state || 0 }));
-    appState.sim.markAllCellsDirty();
-    requestRender({ grid: true, forceFullRedraw: true });
-    processRenderQueue();
-}
 
 /**
  * Updates the hotkey overlay to reflect current state
