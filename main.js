@@ -686,18 +686,8 @@ function setupControls() {
                 sim.orientations = new Uint8Array(GRID_WIDTH * GRID_HEIGHT);
             }
 
-            // Smart Reset: Restore specific arrangement
-            if (appState.startState.length > 0) {
-                appState.startState.forEach(ant => {
-                    const newAnt = sim.addAnt(ant.x, ant.y, ant.facing);
-                    if (typeof ant.state === 'number') newAnt.state = ant.state;
-                });
-            } else {
-                // Fallback uses fresh jittered spawn
-                const spawn = generateSpawnPoint();
-                const newAnt = sim.addAnt(spawn.x, spawn.y, spawn.facing);
-                newAnt.state = spawn.state;
-            }
+            appState.sim.stepCount = 0;
+            restoreInitialAnts();
 
             sim.setRules(appState.currentRules);
             requestRender({ grid: true, forceFullRedraw: true });
@@ -1190,7 +1180,7 @@ function setupControls() {
                 e.preventDefault(); // Prevent scrolling
                 pauseBtn.click();
                 break;
-            case '3': // Reset
+            case '3': // Restart Current Rule-Set
                 resetBtn.click();
                 break;
             case '9': // Decrease Speed
@@ -1473,6 +1463,36 @@ function syncTruchetMode(randomize = false) {
     }
 }
 
+/**
+ * Helper Function: Restores ants from the saved state or creates a new deterministic spawn.
+ * Place this function at the bottom of your main.js file, OUTSIDE of setupControls().
+ */
+function restoreInitialAnts() {
+    const sim = appState.sim;
+    
+    // 1. Clear current ants
+    sim.ants = []; 
+    
+    // 2. Explicitly reset step count
+    sim.stepCount = 0;
+
+    // 3. Restore Ants
+    if (appState.startState && appState.startState.length > 0) {
+        // Path A: Use the reliably saved state
+        for (const antData of appState.startState) {
+            const newAnt = sim.addAnt(antData.x, antData.y, antData.facing);
+            if (typeof antData.state === 'number') newAnt.state = antData.state;
+        }
+    } else {
+        // Path B: Fallback. Use 'false' to force a deterministic (North) facing.
+        const spawn = generateSpawnPoint(false); 
+        const newAnt = sim.addAnt(spawn.x, spawn.y, spawn.facing);
+        newAnt.state = spawn.state;
+        
+        // Capture this new spawn so the next reset works perfectly
+        captureStartState();
+    }
+}
 
 /**
  * Updates the hotkey overlay to reflect current state
