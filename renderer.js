@@ -101,7 +101,7 @@ class GridRenderer {
         const usedColors = new Set();
 
         // 1. Generate Background (Color 0) - Constant Black
-        const background = '#1a1a1a';
+        const background = '#0d0d0dff';
         palette.push(background);
         usedColors.add(normalize(background));
 
