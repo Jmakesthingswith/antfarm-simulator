@@ -15,9 +15,15 @@
 
             <div id="statsOverlay" class="hud-panel glass-overlay">
                 <div id="rulesetDisplay">Langton's Ant</div>
+                <div id="spawnOverlay"></div>
                 <div class="stat-line">
                     <span style="font-weight: bold;">Performance:</span>
                     <span id="speedOverlay">Loading...</span>
+                </div>
+                <div class="stat-line">
+                    <span style="font-weight: bold;">Steps:</span>
+                    <span id="stepOverlayHint" class="step-overlay-hint"></span>
+                    <span id="stepOverlay" class="step-overlay-value"></span>
                 </div>
                 <pre id="ruleSummary"></pre>
             </div>
@@ -62,6 +68,7 @@
                     <div style="display: flex; gap: 5px; margin-top:5px;">
                         <button id="randomizeBtn" class="accent-btn" style="flex: 1;">Randomize!</button>
                     </div>
+                    <button id="autoRandomizeBtn" class="secondary-btn" style="margin-top:6px; width:100%;">Auto Randomize: Off</button>
                     <button id="strictCenterBtn" class="accent-btn" style="margin-top:6px; width:100%;">Strict Spawn: Loose (Random Jitter)</button>
                 </div>
 
@@ -72,8 +79,14 @@
                         <button id="removeAntBtn">-</button>
                         <select id="spawnMode">
                             <option value="center" selected>Centre</option>
-                            <option value="linear">Linear</option>
-                            <option value="cascade">Cascade</option>
+                            <option value="line">Line</option>
+                            <option value="vertical">Vertical</option>
+                            <option value="cross">Cross</option>
+                            <option value="diamond">Diamond</option>
+                            <option value="ring">Ring</option>
+                            <option value="grid3">Grid 3x3</option>
+                            <option value="diagonal">Diagonal</option>
+                            <option value="corners">Corners</option>
                         </select>
                     </div>
                     <div class="control-group">
@@ -113,6 +126,7 @@
             </div>
         </div>
     </div>
+    <div id="hotkeyHintOverlay" class="hud-panel glass-overlay" title="Show Quick Keys">⌘</div>
     <script type="module" src="main.js"></script>
 </body>
 

@@ -1,15 +1,16 @@
 /**
  * main.js
- * 
  * Orchestrates the simulation and renderer.
  */
 
-import { AntSimulation, TURN } from './simulation.js';
+import { AntSimulation } from './simulation.js';
+import { TURN } from './simulation.js';
 import { GridRenderer } from './renderer.js';
 import RuleGenerators from './ruleGenerator.js';
 import TruchetLab from './truchetLab.js';
 import { PRESETS } from './presets.js';
 import { cloneStructured } from './utils.js';
+
 
 // Configuration
 const GRID_WIDTH = 240;
@@ -35,9 +36,11 @@ const appState = {
     sim: null,
     renderer: null,
     isPaused: false,
-    stepsPerSecond: 10,
+    randomizeInProgress: false,
+    stepsPerSecond: 200,
     animationId: null,
     currentRules: null,
+    strictSpawnMode: 'auto', // 'auto' | 'user'
     startState: [],
     startOrientations: null,
     startGrid: null,
@@ -52,7 +55,8 @@ const appState = {
     parallaxMode: 'off',
     strictSpawnIndex: 0,
     hotkeysHidden: false,
-    lastTruchetDesign: null
+    lastTruchetDesign: null,
+    gridDrawCount: 0
 };
 
 /**
@@ -113,9 +117,14 @@ const removeAntBtn = document.getElementById('removeAntBtn');
 const rulePreset = document.getElementById('rulePreset');
 const applyRulesBtn = document.getElementById('applyRulesBtn');
 const randomizeBtn = document.getElementById('randomizeBtn');
+const autoRandomizeBtn = document.getElementById('autoRandomizeBtn');
 const themeSelect = document.getElementById('themeSelect');
 const colorPickerContainer = document.getElementById('colorPickerContainer');
 const rulesetDisplay = document.getElementById('rulesetDisplay');
+const spawnOverlay = document.getElementById('spawnOverlay');
+const stepOverlay = document.getElementById('stepOverlay');
+const stepOverlayHint = document.getElementById('stepOverlayHint');
+const hotkeyHintOverlay = document.getElementById('hotkeyHintOverlay');
 const stepBtn = document.getElementById('stepBtn');
 const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
@@ -136,14 +145,39 @@ function requestRender({ grid = false, forceFullRedraw = false } = {}) {
     }
 }
 
+function formatStepCount(steps) {
+    const n = typeof steps === 'number' && Number.isFinite(steps) ? steps : 0;
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M Steps`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K Steps`;
+    return `${n} Steps`;
+}
+
+function formatStepCountCompact(steps) {
+    const n = typeof steps === 'number' && Number.isFinite(steps) ? steps : 0;
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return `${n}`;
+}
+
+window.updateStepOverlay = function () {
+    if (!stepOverlay || !appState.sim) return;
+    const steps = appState.sim.stepCount ?? 0;
+    stepOverlay.textContent = formatStepCount(steps);
+    if (stepOverlayHint) stepOverlayHint.textContent = formatStepCountCompact(steps);
+};
+
 function processRenderQueue() {
     const { sim, renderer } = appState;
     if (!sim || !renderer) return;
 
     if (appState.gridRenderRequested) {
         const dirtyCells = appState.forceFullRedraw ? null : sim.dirtyCells;
+        const drawnCellsCount = appState.forceFullRedraw
+            ? sim.grid.length
+            : (dirtyCells ? dirtyCells.size : 0);
         const updated = renderer.updateGrid(sim.grid, dirtyCells, appState.forceFullRedraw, sim.orientations);
         if (updated) {
+            appState.gridDrawCount += drawnCellsCount;
             sim.clearDirtyCells();
         }
         appState.gridRenderRequested = false;
@@ -223,10 +257,24 @@ function currentStrictPreset() {
     return STRICT_SPAWN_PRESETS[appState.strictSpawnIndex] || STRICT_SPAWN_PRESETS[0];
 }
 
+function setStrictSpawnIndex(index, mode = null) {
+    appState.strictSpawnIndex = ((index % STRICT_SPAWN_PRESETS.length) + STRICT_SPAWN_PRESETS.length) % STRICT_SPAWN_PRESETS.length;
+    if (mode) appState.strictSpawnMode = mode;
+    updateStrictSpawnUI();
+}
+
+function updateSpawnOverlay() {
+    if (!spawnOverlay) return;
+    const preset = currentStrictPreset();
+    const label = preset?.label || '';
+    spawnOverlay.textContent = label.replace(/^Strict Spawn:\s*/i, '');
+}
+
 function updateStrictSpawnUI() {
     if (!strictCenterBtn) return;
     const preset = currentStrictPreset();
     strictCenterBtn.textContent = preset.label;
+    updateSpawnOverlay();
 }
 
 function setParallaxMode(mode) {
@@ -344,6 +392,8 @@ function init() {
     renderRuleSummary();
     captureStartState(); // Initial snapshot
     window.updateSpeedUI();
+    window.updateStepOverlay();
+    updateSpawnOverlay();
 
     // Setup Event Listeners
     setupControls();
@@ -371,7 +421,7 @@ function init() {
     // Force a redraw after a short delay to ensure everything is settled
     requestRender({ grid: true, forceFullRedraw: true });
     processRenderQueue();
-    setHotkeyOverlayVisibility(true);
+    setHotkeyOverlayVisibility(false);
 }
 
 function populatePresets() {
@@ -651,10 +701,25 @@ function setStepsPerSecond(value, recordHistory = false, label = 'Speed Change')
 function setupControls() {
     const { sim, renderer } = appState;
 
+    let autoRandomizeState = null;
+
+    function setAutoRandomizeBaseline() {
+        if (!autoRandomizeState?.enabled) return;
+        if (!appState.sim?.grid) return;
+        autoRandomizeState.lastGridSnapshot = appState.sim.grid.slice();
+        autoRandomizeState.lastDrawCount = appState.gridDrawCount || 0;
+        autoRandomizeState.lastStepCount = appState.sim.stepCount || 0;
+        autoRandomizeState.stuckStrikes = 0;
+    }
+
     pauseBtn.addEventListener('click', () => {
         appState.isPaused = !appState.isPaused;
         pauseBtn.textContent = appState.isPaused ? 'Resume' : 'Pause';
         updateHotkeyOverlay();
+        if (autoRandomizeState?.enabled) {
+            if (appState.isPaused) pauseAutoRandomizeTimers();
+            else resumeAutoRandomizeTimers();
+        }
     });
 
     if (stepBtn) {
@@ -668,6 +733,7 @@ function setupControls() {
             requestRender({ grid: true });
             processRenderQueue();
             monitor.update(1);
+            window.updateStepOverlay();
         });
     }
 
@@ -706,8 +772,10 @@ function setupControls() {
 
     if (strictCenterBtn) {
         strictCenterBtn.addEventListener('click', () => {
-            appState.strictSpawnIndex = (appState.strictSpawnIndex + 1) % STRICT_SPAWN_PRESETS.length;
-            updateStrictSpawnUI();
+            const next = (appState.strictSpawnIndex + 1) % STRICT_SPAWN_PRESETS.length;
+            // If user cycles to Loose, treat that as opting back into auto selection.
+            const mode = STRICT_SPAWN_PRESETS[next]?.id === 'loose' ? 'auto' : 'user';
+            setStrictSpawnIndex(next, mode);
         });
         updateStrictSpawnUI();
     }
@@ -765,7 +833,6 @@ function setupControls() {
     const parallaxToggle = document.getElementById('parallaxToggle');
 
     if (parallaxToggle) {
-        // 1. The Listener
         parallaxToggle.addEventListener('change', (e) => {
             if (e.target.checked) {
                 setParallaxMode('mouse');
@@ -788,20 +855,16 @@ function setupControls() {
 
     addAntBtn.addEventListener('click', () => {
         performWithHistory('Add Ant', () => {
-            // Step 1: Rewind (Clear Grid & Ants)
             sim.reset();
             sim.ants = []; // Remove default ant
 
-            // Step 2: Restore (Respawn existing ants from startState)
             if (appState.startState.length > 0) {
                 appState.startState.forEach(ant => {
                     const restored = sim.addAnt(ant.x, ant.y, ant.facing);
                     if (typeof ant.state === 'number') restored.state = ant.state;
                 });
             }
-            // Note: If startState is empty (fresh load), we just start with 0 ants and add the new one.
 
-            // Step 3: Add (Spawn new ant)
             const mode = document.getElementById('spawnMode').value;
             const facingVal = document.getElementById('initialFacing').value;
             const index = sim.ants.length; // Index for spawn pattern
@@ -823,10 +886,8 @@ function setupControls() {
             const { x, y } = spawnPoint;
             sim.addAnt(x, y, facing);
 
-            // Step 4: Capture (Save new clean configuration)
             captureStartState();
 
-            // Step 5: Reset Visuals & UI
             requestRender({ grid: true, forceFullRedraw: true });
             processRenderQueue();
         });
@@ -834,11 +895,9 @@ function setupControls() {
 
     removeAntBtn.addEventListener('click', () => {
         performWithHistory('Remove Ant', () => {
-            // Step 1: Rewind
             sim.reset();
             sim.ants = [];
 
-            // Step 2: Restore
             if (appState.startState.length > 0) {
                 appState.startState.forEach(ant => {
                     const restored = sim.addAnt(ant.x, ant.y, ant.facing);
@@ -846,15 +905,12 @@ function setupControls() {
                 });
             }
 
-            // Step 3: Modify (Remove last ant)
             if (sim.ants.length > 0) {
                 sim.ants.pop();
             }
 
-            // Step 4: Capture
             captureStartState();
 
-            // Step 5: Render
             requestRender({ grid: true, forceFullRedraw: true });
             processRenderQueue();
         });
@@ -879,11 +935,8 @@ function setupControls() {
                         if (typeof ant.state === 'number') newAnt.state = ant.state;
                     });
                 } else {
-                    sim.reset(); // Default behavior (one center ant)
-                    sim.ants = [];
-                    const spawn = generateSpawnPoint();
-                    const ant = sim.addAnt(spawn.x, spawn.y, spawn.facing);
-                    ant.state = spawn.state;
+                    randomizeStrictSpawnForPresetLoad();
+                    spawnAntsForPresetLoad();
                 }
 
                 captureStartState(); // Snapshot for Smart Reset
@@ -924,122 +977,330 @@ function setupControls() {
     }
 
     randomizeBtn.addEventListener('click', () => {
+        if (appState.randomizeInProgress) return;
+        // If the user hasn't explicitly locked a strict spawn, treat Randomize (manual or auto) as allowed to pick one.
+        randomizeStrictSpawnForPresetLoad();
+        appState.randomizeInProgress = true;
+        updateSpawnOverlay();
+
         performWithHistory('Randomize Rules', () => {
-            sim.reset();
-            sim.ants = []; // Clear default ant to ensure strict count control
-            requestRender({ grid: true, forceFullRedraw: true });
+            try {
+                sim.reset();
+                sim.ants = []; // Clear default ant to ensure strict count control
+                requestRender({ grid: true, forceFullRedraw: true });
 
-            // Keep current speed; do not reset stepsPerSecond here
+                // Keep current speed; do not reset stepsPerSecond here
 
-            let newRules;
-            let strategy;
-            let isValid = false;
-            let attempts = 0;
-            const maxAttempts = 10;
+                let newRules;
+                let strategy;
+                let isValid = false;
+                let attempts = 0;
+                const maxAttempts = 10;
 
-            // Retry Loop for Quality Control
-            do {
-                attempts++;
-                // 1. Generate Symmetrical Rules (Smart Generator)
-                newRules = RuleGenerators.generateSymmetrical(PRESETS);
+                // Retry Loop for Quality Control
+                do {
+                    attempts++;
+                    newRules = RuleGenerators.generateSymmetrical(PRESETS);
 
-                // 2. Pick Strategy
-                const strategies = [
-                    'mandala', 'grid', 'spiral', 'cross', 'flower',
-                    'ring_burst', 'corners', 'edges', 'random_scatter', 'diagonal_cross', 'cascade'
-                ];
-                strategy = strategies[Math.floor(Math.random() * strategies.length)];
+                    const strategies = [
+                        'center', 'line', 'vertical', 'cross', 'diamond', 'ring', 'grid3', 'diagonal', 'corners'
+                    ];
+                    strategy = strategies[Math.floor(Math.random() * strategies.length)];
 
-                // 3. Validate
-                isValid = RuleGenerators.validate(newRules, strategy, AntSimulation, GRID_WIDTH, GRID_HEIGHT);
+                    isValid = RuleGenerators.validate(newRules, strategy, sim, GRID_WIDTH, GRID_HEIGHT);
+
+                    if (!isValid) {
+                        console.log(`Generation attempt ${attempts} failed validation (Stuck/Looping). Retrying...`);
+                    }
+                } while (!isValid && attempts < maxAttempts);
 
                 if (!isValid) {
-                    console.log(`Generation attempt ${attempts} failed validation (Stuck/Looping). Retrying...`);
+                    console.warn("Could not generate valid rules after max attempts. Using last result.");
+                } else {
+                    console.log(`Success! Valid rules generated on attempt ${attempts}.`);
                 }
-            } while (!isValid && attempts < maxAttempts);
-
-            if (!isValid) {
-                console.warn("Could not generate valid rules after max attempts. Using last result.");
-            } else {
-                console.log(`Success! Valid rules generated on attempt ${attempts}.`);
-            }
 
             appState.currentRules = newRules;
             sim.setRules(newRules);
             updateRulesetTitle("Random");
 
-            // 2. Spawn Ants (Nexus Mode)
             sim.ants = [];
 
-            // Ant Count: 1-4 mostly, rare 5-6. Less is more.
-            const antChoices = [1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 6];
-            const antCount = antChoices[Math.floor(Math.random() * antChoices.length)];
+                // Ant Count: 1-4 mostly, rare 5-6. Less is more.
+                const antChoices = [1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 6];
+                const antCount = antChoices[Math.floor(Math.random() * antChoices.length)];
 
-            // Clear grid for fresh start
-            sim.grid.fill(0);
-            sim.dirtyCells.clear();
-            requestRender({ grid: true, forceFullRedraw: true });
+                // Clear grid for fresh start
+                sim.grid.fill(0);
+                sim.dirtyCells.clear();
+                requestRender({ grid: true, forceFullRedraw: true });
 
-            let lastSpawn = null;
+                let lastSpawn = null;
 
-            for (let i = 0; i < antCount; i++) {
-                let x, y, facing;
-                const strictPreset = currentStrictPreset();
-                const strictPoint = strictPreset.id === 'loose'
-                    ? null
-                    : getStrictSpawnPoint(strictPreset.id, i, antCount);
+                for (let i = 0; i < antCount; i++) {
+                    let x, y, facing;
+                    const strictPreset = currentStrictPreset();
+                    const strictPoint = strictPreset.id === 'loose'
+                        ? null
+                        : getStrictSpawnPoint(strictPreset.id, i, antCount);
 
-                if (strictPoint) {
-                    x = strictPoint.x;
-                    y = strictPoint.y;
-                    facing = Math.floor(Math.random() * 4);
-                } else if (lastSpawn && Math.random() < 0.15) {
-                    // 15% Chance to stack on previous ant (if exists) -> Same Pos, Diff Facing
-                    x = lastSpawn.x;
-                    y = lastSpawn.y;
-                    // Ensure different facing from the one immediately below it in the stack
-                    do {
+                    if (strictPoint) {
+                        x = strictPoint.x;
+                        y = strictPoint.y;
                         facing = Math.floor(Math.random() * 4);
-                    } while (facing === lastSpawn.facing);
-                } else {
-                    const geometry = RuleGenerators.getSpawnGeometry(strategy, i, antCount, GRID_WIDTH, GRID_HEIGHT);
-                    x = geometry.x;
-                    y = geometry.y;
-                    facing = Math.floor(Math.random() * 4);
-
-                    if (strategy === 'mandala') {
-                        // Face INWARD to force interaction immediately
-                        // Calculate facing (0-3) based on angle
-                        // Normalize angle to 0-4 quadrant
-                        const normalized = ((geometry.angle / (2 * Math.PI)) + 0.75) % 1;
-                        facing = Math.floor(normalized * 4);
+                    } else if (lastSpawn && Math.random() < 0.15) {
+                        // 15% Chance to stack on previous ant (if exists) -> Same Pos, Diff Facing
+                        x = lastSpawn.x;
+                        y = lastSpawn.y;
+                        // Ensure different facing from the one immediately below it in the stack
+                        do {
+                            facing = Math.floor(Math.random() * 4);
+                        } while (facing === lastSpawn.facing);
+                    } else {
+                        const geometry = RuleGenerators.getSpawnGeometry(strategy, i, antCount, GRID_WIDTH, GRID_HEIGHT);
+                        x = geometry.x;
+                        y = geometry.y;
+                        facing = Math.floor(Math.random() * 4);
+                        
                     }
+
+                    sim.addAnt(x, y, facing);
+                    lastSpawn = { x, y, facing };
+
+                    // Tagging (Simplified)
+                    const ant = sim.ants[sim.ants.length - 1];
+                    ant.spawnLabel = strategy.charAt(0).toUpperCase() + strategy.slice(1);
                 }
+                // Handle Colors: Logic-Driven Palette Sizing
+                // We check state '0' as a representative sample of the rule dimensions.
+                const numColors = Object.keys(newRules[0]).length;
+                const newPalette = renderer.generateRandomPalette(numColors);
+                renderer.setCustomPalette(newPalette);
+                themeSelect.value = "Custom";
+                syncTruchetMode(renderer.renderMode === 'truchet');
 
-                sim.addAnt(x, y, facing);
-                lastSpawn = { x, y, facing };
-
-                // Tagging (Simplified)
-                const ant = sim.ants[sim.ants.length - 1];
-                ant.spawnLabel = strategy.charAt(0).toUpperCase() + strategy.slice(1);
+                rulePreset.selectedIndex = -1;
+                updateColorPicker();
+                renderRuleSummary();
+                requestRender({ grid: true, forceFullRedraw: true });
+                processRenderQueue();
+                captureStartState(); // Snapshot for Smart Reset
+            } finally {
+                appState.randomizeInProgress = false;
+                setAutoRandomizeBaseline();
+                window.updateStepOverlay();
             }
-
-            // Handle Colors: Logic-Driven Palette Sizing
-            // We check state '0' as a representative sample of the rule dimensions.
-            const numColors = Object.keys(newRules[0]).length;
-            const newPalette = renderer.generateRandomPalette(numColors);
-            renderer.setCustomPalette(newPalette);
-            themeSelect.value = "Custom";
-            syncTruchetMode(renderer.renderMode === 'truchet');
-
-            rulePreset.selectedIndex = -1;
-            updateColorPicker();
-            renderRuleSummary();
-            requestRender({ grid: true, forceFullRedraw: true });
-            processRenderQueue();
-            captureStartState(); // Snapshot for Smart Reset
         });
     });
+
+    autoRandomizeState = {
+        enabled: false,
+        timeoutId: null,
+        monitorTimeoutId: null,
+        monitorBaseMs: 4000,
+        monitorJitterMs: 1500,
+        lastGridSnapshot: null,
+        lastDrawCount: 0,
+        lastStepCount: 0,
+        stuckStrikes: 0,
+        baseMs: 15000,
+        jitterMs: 5000
+    };
+
+    function updateAutoRandomizeUI() {
+        if (!autoRandomizeBtn) return;
+        autoRandomizeBtn.textContent = autoRandomizeState.enabled ? 'Auto Randomize: On' : 'Auto Randomize: Off';
+    }
+
+    function clearAutoRandomizeTimer() {
+        if (autoRandomizeState.timeoutId != null) {
+            clearTimeout(autoRandomizeState.timeoutId);
+            autoRandomizeState.timeoutId = null;
+        }
+    }
+
+    function clearAutoRandomizeMonitorTimer() {
+        if (autoRandomizeState.monitorTimeoutId != null) {
+            clearTimeout(autoRandomizeState.monitorTimeoutId);
+            autoRandomizeState.monitorTimeoutId = null;
+        }
+    }
+
+    function scheduleNextAutoRandomize() {
+        clearAutoRandomizeTimer();
+        if (!autoRandomizeState.enabled) return;
+
+        const jitter = (Math.random() - 0.5) * autoRandomizeState.jitterMs;
+        const delay = Math.max(1000, Math.round(autoRandomizeState.baseMs + jitter));
+
+        autoRandomizeState.timeoutId = setTimeout(() => {
+            if (!autoRandomizeState.enabled) return;
+            triggerAutoRandomize('timer');
+        }, delay);
+    }
+
+    function triggerAutoRandomize(reason) {
+        if (!autoRandomizeState.enabled) return;
+        if (document.hidden) return;
+        if (!randomizeBtn) return;
+
+        // Restart the cadence so the next auto press is relative to the most recent trigger.
+        clearAutoRandomizeTimer();
+
+        randomizeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        if (appState.sim?.grid) {
+            autoRandomizeState.lastGridSnapshot = appState.sim.grid.slice();
+            autoRandomizeState.lastDrawCount = appState.gridDrawCount || 0;
+            autoRandomizeState.lastStepCount = appState.sim.stepCount || 0;
+            autoRandomizeState.stuckStrikes = 0;
+        }
+
+        scheduleNextAutoRandomize();
+        scheduleAutoRandomizeMonitor();
+
+        window.dispatchEvent(new CustomEvent('autoRandomizeTriggered', { detail: { reason } }));
+    }
+
+    function pauseAutoRandomizeTimers() {
+        clearAutoRandomizeTimer();
+        clearAutoRandomizeMonitorTimer();
+    }
+
+    function resumeAutoRandomizeTimers() {
+        if (!autoRandomizeState.enabled) return;
+        if (document.hidden) return;
+        setAutoRandomizeBaseline();
+        scheduleNextAutoRandomize();
+        scheduleAutoRandomizeMonitor();
+    }
+
+    function scheduleAutoRandomizeMonitor() {
+        clearAutoRandomizeMonitorTimer();
+        if (!autoRandomizeState.enabled) return;
+
+        const jitter = (Math.random() - 0.5) * autoRandomizeState.monitorJitterMs;
+        const delay = Math.max(1000, Math.round(autoRandomizeState.monitorBaseMs + jitter));
+
+        autoRandomizeState.monitorTimeoutId = setTimeout(() => {
+            if (!autoRandomizeState.enabled) return;
+
+            // Stop monitoring while paused/hidden; resume on focus/visibility.
+            if (appState.isPaused || document.hidden || !appState.sim) return;
+
+            const simNow = appState.sim;
+
+            // Warmup: mirror ruleGenerator.validate() idea; avoid declaring "stuck" too early.
+            if ((simNow.stepCount || 0) < 300) {
+                autoRandomizeState.lastGridSnapshot = simNow.grid.slice();
+                autoRandomizeState.lastStepCount = simNow.stepCount || 0;
+                autoRandomizeState.stuckStrikes = 0;
+                scheduleAutoRandomizeMonitor();
+                return;
+            }
+
+            if (!autoRandomizeState.lastGridSnapshot || autoRandomizeState.lastGridSnapshot.length !== simNow.grid.length) {
+                autoRandomizeState.lastGridSnapshot = simNow.grid.slice();
+                autoRandomizeState.lastDrawCount = appState.gridDrawCount || 0;
+                autoRandomizeState.lastStepCount = simNow.stepCount || 0;
+                autoRandomizeState.stuckStrikes = 0;
+                scheduleAutoRandomizeMonitor();
+                return;
+            }
+
+            const deltaSteps = (simNow.stepCount || 0) - (autoRandomizeState.lastStepCount || 0);
+            if (deltaSteps < 30) {
+                scheduleAutoRandomizeMonitor();
+                return;
+            }
+
+            const currentDrawCount = appState.gridDrawCount || 0;
+            const deltaDraws = currentDrawCount - (autoRandomizeState.lastDrawCount || 0);
+
+            let changedCells = 0;
+            let paintedCells = 0;
+            const grid = simNow.grid;
+            const prev = autoRandomizeState.lastGridSnapshot;
+            for (let i = 0; i < grid.length; i++) {
+                const v = grid[i];
+                if (v !== prev[i]) changedCells++;
+                if (v !== 0) paintedCells++;
+            }
+
+            // Same spirit as RuleGenerators.validate(): low activity => likely stuck/stabilized.
+            // Also treat low renderer draw activity as a strong stuck signal (cheap + reflects what the user sees).
+            const minChangedCells = 12;
+            const minPaintedCells = 40;
+            const minDeltaDraws = 8;
+            const stuckByDraws = deltaDraws < minDeltaDraws;
+            const stuck = stuckByDraws || changedCells < minChangedCells || paintedCells < minPaintedCells || simNow.ants.length === 0;
+
+            if (stuck) autoRandomizeState.stuckStrikes++;
+            else autoRandomizeState.stuckStrikes = 0;
+
+            autoRandomizeState.lastGridSnapshot = simNow.grid.slice();
+            autoRandomizeState.lastDrawCount = currentDrawCount;
+            autoRandomizeState.lastStepCount = simNow.stepCount || 0;
+
+            if (autoRandomizeState.stuckStrikes >= 1) {
+                autoRandomizeState.stuckStrikes = 0;
+                autoRandomizeState.lastGridSnapshot = null;
+                autoRandomizeState.lastDrawCount = 0;
+                autoRandomizeState.lastStepCount = 0;
+                triggerAutoRandomize('stuck');
+            }
+
+            scheduleAutoRandomizeMonitor();
+        }, delay);
+    }
+
+    function setAutoRandomizeEnabled(enabled) {
+        autoRandomizeState.enabled = Boolean(enabled);
+        updateAutoRandomizeUI();
+        if (!autoRandomizeState.enabled) {
+            pauseAutoRandomizeTimers();
+            return;
+        }
+        resumeAutoRandomizeTimers();
+    }
+
+    updateAutoRandomizeUI();
+
+    if (autoRandomizeBtn) {
+        autoRandomizeBtn.addEventListener('click', () => {
+            setAutoRandomizeEnabled(!autoRandomizeState.enabled);
+            autoRandomizeBtn.blur();
+        });
+    }
+
+    window.addEventListener('beforeunload', () => {
+        clearAutoRandomizeTimer();
+        clearAutoRandomizeMonitorTimer();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (!autoRandomizeState.enabled) return;
+        if (document.hidden) pauseAutoRandomizeTimers();
+        else resumeAutoRandomizeTimers();
+    });
+
+    window.addEventListener('blur', () => {
+        if (!autoRandomizeState.enabled) return;
+        pauseAutoRandomizeTimers();
+    });
+
+    window.addEventListener('focus', () => {
+        if (!autoRandomizeState.enabled) return;
+        resumeAutoRandomizeTimers();
+    });
+
+    if (hotkeyHintOverlay) {
+        hotkeyHintOverlay.addEventListener('click', () => {
+            setHotkeyOverlayVisibility(true);
+            updateHotkeyOverlay();
+            hotkeyHintOverlay.style.display = 'none';
+        });
+    }
 
     themeSelect.addEventListener('change', (e) => {
         performWithHistory('Theme Change', () => {
@@ -1065,16 +1326,12 @@ function setupControls() {
     if (generateRandomThemeBtn) {
         generateRandomThemeBtn.addEventListener('click', () => {
             performWithHistory('Random Theme', () => {
-                // 1. Inspect the current physics engine
-                // We check state 0 of the current rules to find the color depth
                 const activeRules = sim.rules;
                 const numColors = Object.keys(activeRules[0]).length;
 
-                // 2. Generate a palette that matches the physics
                 const newPalette = renderer.generateRandomPalette(numColors);
                 renderer.setCustomPalette(newPalette);
 
-                // 3. Update UI
                 themeSelect.value = "Custom";
                 updateColorPicker();
                 requestRender({ grid: true, forceFullRedraw: true });
@@ -1152,10 +1409,14 @@ function setupControls() {
                 randomizeBtn.click();
                 break;
             case 's':
-                if (showHideBtn) showHideBtn.click();
+                setHotkeyOverlayVisibility(appState.hotkeysHidden);
+                updateHotkeyOverlay();
                 break;
             case 'c':
                 if (generateRandomThemeBtn) generateRandomThemeBtn.click();
+                break;
+            case 'k': // Cycle Strict Spawn preset
+                if (strictCenterBtn) strictCenterBtn.click();
                 break;
             case '1': // Cycle Ruleset Clockwise (Next)
                 {
@@ -1225,13 +1486,14 @@ function setupControls() {
             case 'u': // Toggle Parallax
                 setParallaxMode(appState.parallaxMode === 'mouse' ? 'off' : 'mouse');
                 break;
-            case 'h': // Toggle HUD/Overlays
-                setHotkeyOverlayVisibility(appState.hotkeysHidden);
-                updateHotkeyOverlay();
+            case 'h': // Toggle Controls panel
+                if (showHideBtn) showHideBtn.click();
                 break;
         }
     });
 }
+
+// Main Loop 
 
 let lastTime = performance.now();
 let accumulator = 0;
@@ -1272,6 +1534,7 @@ function loop() {
     processRenderQueue();
 
     monitor.update(stepsExecutedThisFrame);
+    if (stepsExecutedThisFrame > 0) window.updateStepOverlay();
     appState.animationId = requestAnimationFrame(loop);
 }
 
@@ -1397,6 +1660,50 @@ function generateSpawnPoint() {
     return { x, y, facing, state };
 }
 
+function randomizeStrictSpawnForPresetLoad() {
+    if (appState.strictSpawnMode === 'user') return;
+
+    // Prefer structured strict spawns most of the time; keep some loose for chaos.
+    const roll = Math.random();
+    if (roll < 0.2) {
+        setStrictSpawnIndex(0, 'auto'); // loose
+    } else {
+        const candidates = [];
+        for (let i = 1; i < STRICT_SPAWN_PRESETS.length; i++) {
+            const id = STRICT_SPAWN_PRESETS[i]?.id;
+            if (id && id !== 'corners') candidates.push(i);
+        }
+        const pick = candidates.length
+            ? candidates[Math.floor(Math.random() * candidates.length)]
+            : 1 + Math.floor(Math.random() * (STRICT_SPAWN_PRESETS.length - 1));
+        setStrictSpawnIndex(pick, 'auto');
+    }
+}
+
+function spawnAntsForPresetLoad() {
+    const sim = appState.sim;
+    if (!sim) return;
+
+    const antChoices = [1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 6, 7];
+    const antCount = antChoices[Math.floor(Math.random() * antChoices.length)];
+
+    const stateKeys = appState.currentRules ? Object.keys(appState.currentRules).map(Number).filter(Number.isFinite) : [0];
+    const allowedStates = stateKeys.length ? stateKeys : [0];
+
+    sim.reset();
+    sim.ants = [];
+
+    const strictPreset = currentStrictPreset();
+    for (let i = 0; i < antCount; i++) {
+        const strictPoint = strictPreset.id === 'loose' ? null : getStrictSpawnPoint(strictPreset.id, i, antCount);
+        const x = strictPoint ? strictPoint.x : generateSpawnPoint().x;
+        const y = strictPoint ? strictPoint.y : generateSpawnPoint().y;
+        const facing = Math.floor(Math.random() * 4);
+        const ant = sim.addAnt(x, y, facing);
+        ant.state = allowedStates[Math.floor(Math.random() * allowedStates.length)] || 0;
+    }
+}
+
 function respawnWithJitter() {
     const { sim } = appState;
     if (!sim) return;
@@ -1465,37 +1772,36 @@ function syncTruchetMode(randomize = false) {
         }
     }
 }
-
-
+/**
+ * Restores the initial ant configuration and resets the step counter.
+ * @returns {void}
+ */
 function restoreInitialAnts() {
     const sim = appState.sim;
     
-    // 1. Clear current ants
     sim.ants = []; 
     
-    // 2. Explicitly reset step count
     sim.stepCount = 0;
 
-    // 3. Restore Ants
     if (appState.startState && appState.startState.length > 0) {
-        // Path A: Use the reliably saved state
         for (const antData of appState.startState) {
             const newAnt = sim.addAnt(antData.x, antData.y, antData.facing);
             if (typeof antData.state === 'number') newAnt.state = antData.state;
         }
     } else {
-        // Path B: Fallback. Use 'false' to force a deterministic (North) facing.
         const spawn = generateSpawnPoint(false); 
         const newAnt = sim.addAnt(spawn.x, spawn.y, spawn.facing);
         newAnt.state = spawn.state;
         
-        // Capture this new spawn so the next reset works perfectly
         captureStartState();
     }
+
+    window.updateStepOverlay();
 }
 
 /**
- * Updates the hotkey overlay to reflect current state
+ * Updates the Quick Keys overlay content.
+ * @returns {void}
  */
 function updateHotkeyOverlay() {
     const overlay = document.getElementById('hotkeyOverlay');
@@ -1510,6 +1816,7 @@ function updateHotkeyOverlay() {
         [1/2] Cycle Presets<br>
         [3] Restart Current Rule-Set<br>
         [C] Randomize Colour<br>
+        [K] Cycle Spawn Rule<br>
         [T] Truchet Mode / Reroll<br>
         [Space] ${isPausedText}<br>
         [9/0] -/+ 5 Small Speed Change<br>
@@ -1518,12 +1825,9 @@ function updateHotkeyOverlay() {
         [W] Reset Speed<br>
         [G] ${gridText}<br>
         [U] ${is3DText}<br>
-        [H] Hide/Show Quick Keys<br>
-        [S] Show/Hide Controls Panel
+        [S] Hide/Show Quick Keys<br>
+        [H] Show/Hide Controls Panel
     `.trim();
 }
-
 // Start the application
 init();
-
-// End of file

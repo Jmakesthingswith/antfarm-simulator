@@ -1,3 +1,8 @@
+/**
+ * Deep-clones JSON-like values and common typed arrays.
+ * @param {*} value - Value to clone.
+ * @returns {*} Cloned value.
+ */
 export const cloneStructured = (value) => {
     if (typeof structuredClone === 'function') {
         return structuredClone(value);

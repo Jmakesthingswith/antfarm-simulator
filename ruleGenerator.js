@@ -3,10 +3,362 @@
  * Each returns a RuleSet object
  */
 
-import { TURN } from './simulation.js';
+import { AntSimulation, TURN } from './simulation.js';
 import { cloneStructured } from './utils.js';
+import * as PresetsModule from './presets.js';
 
 const cloneRules = (rules) => cloneStructured(rules);
+
+const MUTATION_SEED_POOL = Array.isArray(PresetsModule.MUTATION_SEED_POOL)
+    ? PresetsModule.MUTATION_SEED_POOL
+    : [];
+
+/**
+ * Computes state and color dimensions for a rule table.
+ * @param {Object} rules - Rule table.
+ * @returns {{stateKeys:number[], numStates:number, colors:number[], numColors:number}} Dimensions and keys.
+ */
+function countStatesAndColors(rules) {
+    const stateKeys = Object.keys(rules).map(Number).filter(Number.isFinite);
+    const numStates = stateKeys.length;
+    const colors =
+        stateKeys.length > 0 && rules[stateKeys[0]]
+            ? Object.keys(rules[stateKeys[0]]).map(Number).filter(Number.isFinite)
+            : [];
+    return { stateKeys, numStates, colors, numColors: colors.length };
+}
+
+/**
+ * Extracts structural statistics from a rule table.
+ * @param {Object} rules - Rule table.
+ * @returns {null|{stateKeys:number[], colors:number[], maxColor:number, turnSet:Set<number>, writeSet:Set<number>, nextStateSet:Set<number>, invalid:boolean}} Analysis result.
+ */
+function analyzeRuleSet(rules) {
+    const stateKeys = Object.keys(rules || {}).map(Number).filter(Number.isFinite);
+    if (stateKeys.length === 0) return null;
+
+    const colorSet = new Set();
+    const turnSet = new Set();
+    const writeSet = new Set();
+    const nextStateSet = new Set();
+    let invalid = false;
+
+    for (const s of stateKeys) {
+        const row = rules[s];
+        if (!row || typeof row !== 'object') {
+            invalid = true;
+            continue;
+        }
+        for (const ck of Object.keys(row)) {
+            const c = Number(ck);
+            if (!Number.isFinite(c)) continue;
+            colorSet.add(c);
+
+            const r = row[ck];
+            if (!r || typeof r !== 'object') {
+                invalid = true;
+                continue;
+            }
+
+            if (!Number.isFinite(r.write) || !Number.isFinite(r.turn) || !Number.isFinite(r.nextState)) {
+                invalid = true;
+                continue;
+            }
+            writeSet.add(r.write);
+            turnSet.add(r.turn);
+            nextStateSet.add(r.nextState);
+        }
+    }
+
+    const colors = [...colorSet].sort((a, b) => a - b);
+    const maxColor = colors.length ? colors[colors.length - 1] : -1;
+
+    return {
+        stateKeys: stateKeys.sort((a, b) => a - b),
+        colors,
+        maxColor,
+        turnSet,
+        writeSet,
+        nextStateSet,
+        invalid
+    };
+}
+
+/**
+ * Validates the rule table for basic correctness and non-degeneracy.
+ * @param {Object} rules - Rule table.
+ * @returns {boolean} True if the rule table is usable.
+ */
+function isValidRuleSetStructure(rules) {
+    const info = analyzeRuleSet(rules);
+    if (!info || info.invalid) return false;
+
+    const { stateKeys, colors, turnSet, writeSet } = info;
+    if (stateKeys.length < 1 || colors.length < 2) return false;
+
+    const allowedTurns = new Set([TURN.L, TURN.R, TURN.U, TURN.N]);
+    for (const t of turnSet) {
+        if (!allowedTurns.has(t)) return false;
+    }
+
+    // Ensure a complete (rectangular) transition table.
+    for (const s of stateKeys) {
+        const row = rules[s];
+        for (const c of colors) {
+            const r = row[c];
+            if (!r) return false;
+            if (!Number.isFinite(r.write) || !Number.isFinite(r.turn) || !Number.isFinite(r.nextState)) return false;
+            if (!stateKeys.includes(r.nextState)) return false;
+            if (!colors.includes(r.write)) return false;
+        }
+    }
+
+    // Reject trivial tables with no meaningful variety.
+    if (turnSet.size < 2) return false;
+    if (writeSet.size < 2) return false;
+
+    return true;
+}
+
+/**
+ * Expands a rule table by adding states and/or colors.
+ * @param {Object} baseRules - Base rule table.
+ * @param {Object} [options] - Expansion options.
+ * @param {number} [options.maxStates=6] - Maximum states to allow.
+ * @param {number} [options.maxColors=6] - Maximum colors to allow.
+ * @param {number} [options.addStateChance=0.45] - Probability of adding a state.
+ * @param {number} [options.addColorChance=0.55] - Probability of adding a color.
+ * @param {number} [options.promoteNewColorWritesChance=0.35] - Probability of redirecting writes to new colors.
+ * @param {boolean} [options.forceAdd=false] - If true, forces at least one structural addition when possible.
+ * @returns {Object} Expanded rule table.
+ */
+function diversifyStructure(baseRules, {
+    maxStates = 6,
+    maxColors = 6,
+    addStateChance = 0.45,
+    addColorChance = 0.55,
+    promoteNewColorWritesChance = 0.35,
+    forceAdd = false
+} = {}) {
+    const rules = cloneRules(baseRules);
+    const { stateKeys, numStates, colors, numColors } = countStatesAndColors(rules);
+    if (numStates === 0 || numColors === 0) return rules;
+
+    let addedSomething = false;
+
+    // Prefer adding colors to expand the paint space.
+    if (numColors < maxColors && (forceAdd || Math.random() < addColorChance)) {
+        const newColor = Math.max(...colors) + 1;
+        const nextStateChoices = stateKeys;
+        const availableColorsAfter = [...colors, newColor];
+        const turns = [TURN.L, TURN.R, TURN.U, TURN.N];
+
+        for (const s of stateKeys) {
+            rules[s][newColor] = {
+                write: availableColorsAfter[Math.floor(Math.random() * availableColorsAfter.length)],
+                turn: turns[Math.floor(Math.random() * turns.length)],
+                nextState: nextStateChoices[Math.floor(Math.random() * nextStateChoices.length)]
+            };
+        }
+
+        // Encourage the new color to be reachable via writes.
+        for (const s of stateKeys) {
+            for (const c of colors) {
+                if (Math.random() < promoteNewColorWritesChance) {
+                    rules[s][c].write = availableColorsAfter[Math.floor(Math.random() * availableColorsAfter.length)];
+                }
+            }
+        }
+
+        addedSomething = true;
+    }
+
+    // Add a state to expand internal dynamics.
+    if (numStates < maxStates && (!addedSomething || forceAdd || Math.random() < addStateChance)) {
+        const newState = Math.max(...stateKeys) + 1;
+        const templateState = stateKeys[Math.floor(Math.random() * stateKeys.length)];
+        rules[newState] = {};
+
+        const turns = [TURN.L, TURN.R, TURN.U, TURN.N];
+        const { colors: colorsNow } = countStatesAndColors(rules);
+
+        for (const c of colorsNow) {
+            const templateRule = rules[templateState]?.[c];
+            if (templateRule) {
+                rules[newState][c] = cloneRules(templateRule);
+                if (Math.random() < 0.35) rules[newState][c].turn = turns[Math.floor(Math.random() * turns.length)];
+                if (Math.random() < 0.35) rules[newState][c].nextState = newState;
+            } else {
+                rules[newState][c] = {
+                    write: colorsNow[Math.floor(Math.random() * colorsNow.length)],
+                    turn: turns[Math.floor(Math.random() * turns.length)],
+                    nextState: templateState
+                };
+            }
+        }
+
+        // Ensure the new state is reachable.
+        for (const s of stateKeys) {
+            for (const c of colorsNow) {
+                if (Math.random() < 0.2) rules[s][c].nextState = newState;
+            }
+        }
+
+        addedSomething = true;
+    }
+
+    return addedSomething ? rules : rules;
+}
+
+let _seedPoolCdf = null;
+let _seedPoolTotalWeight = 0;
+let _seedPoolBuckets = null;
+let _seedPoolBucketCdf = null;
+let _seedPoolBucketTotalWeight = 0;
+
+function bucketKeyForSeed(entry) {
+    const meta = entry && entry.meta ? entry.meta : null;
+    const family = meta && typeof meta.family === 'string' ? meta.family : 'unknown';
+    const mapping = meta && typeof meta.mapping === 'string' ? meta.mapping : 'unknown';
+    return `${family}__${mapping}`;
+}
+
+function getBucketWeight(bucketKey, count) {
+    // Balance by bucket so large buckets don't fully dominate.
+    // Use sqrt(count) so each bucket gets representation without over-forcing tiny buckets.
+    let w = Math.sqrt(Math.max(1, count));
+
+    if (bucketKey.includes('traffic__')) w *= 1.25;
+    if (bucketKey.includes('multicolor__')) w *= 1.15;
+    if (bucketKey.includes('__eca8bit_to_turmite_v2')) w *= 1.1;
+    if (bucketKey.includes('__eca8bit_to_turmite_v1')) w *= 1.0;
+    if (bucketKey.includes('__derived')) w *= 0.5;
+
+    return w;
+}
+
+function ensureSeedPoolBuckets() {
+    if (_seedPoolBuckets) return;
+    if (!Array.isArray(MUTATION_SEED_POOL) || MUTATION_SEED_POOL.length === 0) {
+        _seedPoolBuckets = new Map();
+        _seedPoolBucketCdf = new Float64Array(0);
+        _seedPoolBucketTotalWeight = 0;
+        return;
+    }
+
+    const buckets = new Map();
+    for (let i = 0; i < MUTATION_SEED_POOL.length; i++) {
+        const entry = MUTATION_SEED_POOL[i];
+        const key = bucketKeyForSeed(entry);
+        let bucket = buckets.get(key);
+        if (!bucket) {
+            bucket = { key, indices: [], cdf: null, totalWeight: 0 };
+            buckets.set(key, bucket);
+        }
+        bucket.indices.push(i);
+    }
+
+    // Build per-bucket CDFs (weighted by class/family hints) and bucket-level CDF.
+    const bucketList = [...buckets.values()];
+    const bucketCdf = new Float64Array(bucketList.length);
+    let bucketTotal = 0;
+
+    for (let b = 0; b < bucketList.length; b++) {
+        const bucket = bucketList[b];
+        const idxs = bucket.indices;
+        const cdf = new Float64Array(idxs.length);
+        let total = 0;
+        for (let j = 0; j < idxs.length; j++) {
+            total += getSeedPoolWeight(MUTATION_SEED_POOL[idxs[j]]);
+            cdf[j] = total;
+        }
+        bucket.cdf = cdf;
+        bucket.totalWeight = total;
+
+        bucketTotal += getBucketWeight(bucket.key, idxs.length) * Math.max(1e-6, total);
+        bucketCdf[b] = bucketTotal;
+    }
+
+    _seedPoolBuckets = bucketList;
+    _seedPoolBucketCdf = bucketCdf;
+    _seedPoolBucketTotalWeight = bucketTotal;
+}
+
+function getSeedPoolWeight(entry) {
+    const meta = entry && entry.meta ? entry.meta : null;
+    const classHint = meta && typeof meta.wolframClassHint === 'number' ? meta.wolframClassHint : null;
+    const family = meta && typeof meta.family === 'string' ? meta.family : null;
+
+    let w = 1;
+    if (classHint === 1) w *= 0.35;
+    else if (classHint === 2) w *= 1.0;
+    else if (classHint === 3) w *= 1.6;
+    else if (classHint === 4) w *= 2.0;
+
+    if (family === 'traffic') w *= 1.25;
+    if (family === 'derived') w *= 0.5;
+
+    return w;
+}
+
+function ensureSeedPoolIndex() {
+    if (_seedPoolCdf) return;
+    if (!Array.isArray(MUTATION_SEED_POOL) || MUTATION_SEED_POOL.length === 0) {
+        _seedPoolCdf = [];
+        _seedPoolTotalWeight = 0;
+        return;
+    }
+
+    _seedPoolCdf = new Float64Array(MUTATION_SEED_POOL.length);
+    let total = 0;
+    for (let i = 0; i < MUTATION_SEED_POOL.length; i++) {
+        total += getSeedPoolWeight(MUTATION_SEED_POOL[i]);
+        _seedPoolCdf[i] = total;
+    }
+    _seedPoolTotalWeight = total;
+}
+
+function pickSeedFromPool() {
+    // Prefer bucketed sampling for diversity; fall back to global CDF if needed.
+    ensureSeedPoolBuckets();
+    if (_seedPoolBucketTotalWeight > 0 && _seedPoolBuckets && _seedPoolBuckets.length > 0) {
+        const rBucket = Math.random() * _seedPoolBucketTotalWeight;
+        let loB = 0;
+        let hiB = _seedPoolBucketCdf.length - 1;
+        while (loB < hiB) {
+            const mid = (loB + hiB) >> 1;
+            if (rBucket <= _seedPoolBucketCdf[mid]) hiB = mid;
+            else loB = mid + 1;
+        }
+
+        const bucket = _seedPoolBuckets[loB];
+        if (!bucket || bucket.totalWeight <= 0 || !bucket.cdf || bucket.cdf.length === 0) return null;
+
+        const r = Math.random() * bucket.totalWeight;
+        let lo = 0;
+        let hi = bucket.cdf.length - 1;
+        while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (r <= bucket.cdf[mid]) hi = mid;
+            else lo = mid + 1;
+        }
+
+        return MUTATION_SEED_POOL[bucket.indices[lo]] || null;
+    }
+
+    ensureSeedPoolIndex();
+    if (_seedPoolTotalWeight <= 0) return null;
+
+    const r = Math.random() * _seedPoolTotalWeight;
+    let lo = 0;
+    let hi = _seedPoolCdf.length - 1;
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (r <= _seedPoolCdf[mid]) hi = mid;
+        else lo = mid + 1;
+    }
+    return MUTATION_SEED_POOL[lo] || null;
+}
 
 const RuleGenerators = {
     /**
@@ -129,23 +481,26 @@ const RuleGenerators = {
             }
 
             switch (mutationType) {
-                case 'turn':
+                case 'turn': {
                     let newTurn;
                     do {
                         newTurn = turns[Math.floor(Math.random() * turns.length)];
                     } while (newTurn === rule.turn);
                     rule.turn = newTurn;
                     break;
-                case 'state':
+                }
+                case 'state': {
                     rule.nextState = states[Math.floor(Math.random() * states.length)];
                     break;
-                case 'write':
+                }
+                case 'write': {
                     let newWrite;
                     do {
                         newWrite = colors[Math.floor(Math.random() * colors.length)];
-                    } while (newWrite == rule.write);
+                    } while (newWrite === rule.write);
                     rule.write = newWrite;
                     break;
+                }
             }
         }
 
@@ -159,123 +514,183 @@ const RuleGenerators = {
     generateSymmetrical(presets) {
         const strategy = Math.random();
 
-        // Bias toward the simpler generators first, with smaller probability for preset mutation to keep outputs varied but recognizable.
-        if (strategy < 0.5) {
-            return this.cellularAutomata();
-        } else if (strategy < 0.75) {
-            return this.sacredGeometry();
-        } else if (strategy < 0.9) {
+        // Balanced sources so visible presets meaningfully propagate into Randomize via mutation.
+        // 20% simple generators, 55% hidden CA seed pool, 25% visible preset mutation.
+        if (strategy < 0.20) {
+            const r = Math.random();
+            if (r < 0.5) return this.cellularAutomata();
+            if (r < 0.8) return this.sacredGeometry();
             return this.wolframStyle();
-        } else {
-            // Mutate a random preset
-            const presetNames = Object.keys(presets);
-            const randomPreset = presets[presetNames[Math.floor(Math.random() * presetNames.length)]];
-            return this.mutate(randomPreset.rules, 5);
         }
+
+        if (strategy < 0.75) {
+            const seed = pickSeedFromPool();
+            if (seed && seed.rules) {
+                const classHint = seed.meta && typeof seed.meta.wolframClassHint === 'number'
+                    ? seed.meta.wolframClassHint
+                    : 2;
+                // More mutation than presets/simple paths; higher-class seeds get slightly fewer to preserve structure.
+                const mutations = classHint <= 1 ? 14 : (classHint === 2 ? 12 : (classHint === 3 ? 11 : 10));
+
+                // Since the CA seed pool is mostly 2-state/2-color, frequently expand structure for diversity.
+                let base = seed.rules;
+                const { numStates: seedStates, numColors: seedColors } = countStatesAndColors(base);
+
+                // If we’re starting from a 2x2 seed, almost always expand at least one dimension.
+                const shouldForceDiversify = seedStates <= 2 && seedColors <= 2;
+                const structureChance = shouldForceDiversify ? 0.92 : (classHint >= 3 ? 0.7 : 0.8);
+
+                if (Math.random() < structureChance) {
+                    base = diversifyStructure(base, {
+                        maxStates: 7,
+                        maxColors: 7,
+                        addStateChance: classHint >= 3 ? 0.45 : 0.55,
+                        addColorChance: classHint >= 3 ? 0.8 : 0.9,
+                        promoteNewColorWritesChance: 0.55,
+                        forceAdd: shouldForceDiversify
+                    });
+
+                    // Occasionally expand twice to get beyond 3 colors / 3 states.
+                    if (shouldForceDiversify && Math.random() < 0.35) {
+                        base = diversifyStructure(base, {
+                            maxStates: 7,
+                            maxColors: 7,
+                            addStateChance: 0.35,
+                            addColorChance: 0.75,
+                            promoteNewColorWritesChance: 0.35,
+                            forceAdd: false
+                        });
+                    }
+                }
+
+                // Mutate after structure change so new dimensions become “active”.
+                return this.mutate(base, mutations, false);
+            }
+            // Fallback if pool isn't available for some reason.
+            return this.wolframStyle();
+        }
+
+        // Mutate a random preset (recognizable baseline).
+        const presetNames = Object.keys(presets).filter(name => name !== "Langton's Ant");
+        if (presetNames.length === 0) return this.wolframStyle();
+        const randomPreset = presets[presetNames[Math.floor(Math.random() * presetNames.length)]];
+        let base = randomPreset.rules;
+
+        // Often expand structure a bit so preset mutations don't collapse to tiny tables.
+        if (Math.random() < 0.6) {
+            base = diversifyStructure(base, {
+                maxStates: 7,
+                maxColors: 7,
+                addStateChance: 0.35,
+                addColorChance: 0.65,
+                promoteNewColorWritesChance: 0.4,
+                forceAdd: false
+            });
+        }
+
+        const mutations = 10;
+        return this.mutate(base, mutations, false);
     },
 
     /**
      * Validates that the rules produce interesting behavior.
      * Replaces main.js validateRules
      */
-    validate(rules, strategy, AntSimulation, GRID_WIDTH, GRID_HEIGHT) {
-        // Dependencies passed in to avoid circular imports or hardcoding
-        const testSim = new AntSimulation(GRID_WIDTH, GRID_HEIGHT);
-        testSim.setRules(rules);
-        testSim.ants = [];
-        const antCount = 8;
-        const startPositions = [];
 
-        // Spawn test ants
-        for (let i = 0; i < antCount; i++) {
-            const geometry = this.getSpawnGeometry(strategy, i, antCount, GRID_WIDTH, GRID_HEIGHT);
-            let x = geometry.x;
-            let y = geometry.y;
-            let facing = Math.floor(Math.random() * 4);
+    // Pass data not infrastructure, if module creates something, it should import it itself.
+    // Dependency injection is for pluggable components, not hard dependencies.!!!! 
+    validate(rules, strategy, simOrWidth, widthOrHeight, maybeHeight) {
+    
+    let SimulationClass = null;
+    let width = null;
+    let height = null;
 
-            if (strategy === 'mandala' && geometry.angle !== undefined) {
-                const normalized = ((geometry.angle / (2 * Math.PI)) + 0.75) % 1;
-                facing = Math.floor(normalized * 4);
-            }
-            testSim.addAnt(x, y, facing);
-            startPositions.push({ x, y, facing });
+    if (!isValidRuleSetStructure(rules)) return false;
+
+    if (typeof simOrWidth === 'number') {
+        // Signature (rules, strategy, width, height)
+        width = simOrWidth;
+        height = widthOrHeight;
+        
+        if (typeof AntSimulation !== 'function') {
+            throw new Error('AntSimulation class not available in validate()');
         }
-
-        // Track ant positions over time
-        const history = [];
-        const steps = 500;
-        const checkInterval = 50;
-
-        for (let step = 0; step < steps; step++) {
-            testSim.update(1);
-
-            if (step % checkInterval === 0) {
-                history.push(testSim.ants.map(a => ({ x: a.x, y: a.y, facing: a.facing })));
-            }
+        SimulationClass = AntSimulation;
+    } else {
+        // Signature (rules, strategy, sim, width, height)
+        const sim = simOrWidth;
+        width = widthOrHeight;
+        height = maybeHeight;
+        SimulationClass = sim && typeof sim.constructor === 'function' ? sim.constructor : null;
+        if (!SimulationClass) {
+            throw new Error('Simulation instance not provided (or has no constructor) in validate()');
         }
+    }
 
-        // VALIDATION CHECKS
-        let totalDisplacement = 0;
-        let stuckAnts = 0;
-        let escapedAnts = 0;
-        let trivialAnts = 0;
+    const testSim = new SimulationClass(width, height);
+    testSim.setRules(rules);
 
-        testSim.ants.forEach((ant, i) => {
-            const start = startPositions[i];
-            const dx = ant.x - start.x;
-            const dy = ant.y - start.y;
+    // Turn off any snapshot/history overhead if the sim supports it.
+    if ('enableHistory' in testSim) testSim.enableHistory = false;
+    if (Array.isArray(testSim.history)) testSim.history.length = 0;
+    if (typeof testSim.dirtyCells?.clear === 'function') testSim.dirtyCells.clear();
 
-            // Handle wrapping for displacement calculation
-            const wrappedDx = Math.abs(dx) > GRID_WIDTH / 2 ? GRID_WIDTH - Math.abs(dx) : Math.abs(dx);
-            const wrappedDy = Math.abs(dy) > GRID_HEIGHT / 2 ? GRID_HEIGHT - Math.abs(dy) : Math.abs(dy);
-            const dist = Math.sqrt(wrappedDx * wrappedDx + wrappedDy * wrappedDy);
+    // Ensure NO default ant is present (some sims spawn one during reset/constructor).
+    if (typeof testSim.reset === 'function') testSim.reset();
+    if (typeof testSim.clearAnts === 'function') testSim.clearAnts();
+    else testSim.ants = [];
 
-            totalDisplacement += dist;
+    // Ensure a clean grid.
+    if (testSim.grid?.fill) testSim.grid.fill(0);
+    if (testSim.orientations?.fill) testSim.orientations.fill(0);
+    testSim.stepCount = 0;
 
-            // Check 1: Stuck (hasn't moved much from origin)
-            if (dist < 4) stuckAnts++;
+    // Spawn validation ants
+    const antCount = 8;
+    for (let i = 0; i < antCount; i++) {
+        const geometry = this.getSpawnGeometry(strategy, i, antCount, width, height);
+        const facing = Math.floor(Math.random() * 4);
+        testSim.addAnt(geometry.x, geometry.y, facing);
+    }
 
-            // Check 2: Escaped (too far from center)
-            const centerX = GRID_WIDTH / 2;
-            const centerY = GRID_HEIGHT / 2;
-            const distFromCenter = Math.sqrt(
-                Math.pow(ant.x - centerX, 2) + Math.pow(ant.y - centerY, 2)
-            );
-            if (distFromCenter > Math.min(GRID_WIDTH, GRID_HEIGHT) * 0.4) {
-                escapedAnts++;
-            }
+    // Warm up, then measure sustained grid activity.
+    const warmupSteps = 300;
+    const measureSteps = 900;
 
-            // Check 3: Trivial movement (moving in nearly straight line)
-            // Compare direction changes across history
-            let directionChanges = 0;
-            for (let h = 1; h < history.length; h++) {
-                if (history[h][i].facing !== history[h - 1][i].facing) {
-                    directionChanges++;
-                }
-            }
-            // If fewer than 2 direction changes in 500 steps, it's trivial
-            if (directionChanges < 2) trivialAnts++;
-        });
+    testSim.update(warmupSteps);
 
-        // Unique state count check
-        const uniqueStates = new Set(testSim.grid).size;
+    const gridBefore = testSim.grid.slice();
 
-        // --- STUCK ANT FIX ---
-        // Enhanced stuck detection: If >50% of ants are within 4 pixels of start, FAIL.
-        if (stuckAnts > antCount * 0.5) return false;
+    testSim.update(measureSteps);
 
-        // Ensure some movement happened on average
-        const avgDisplacement = totalDisplacement / antCount;
-        if (avgDisplacement < 5) return false;
+    let changedCells = 0;
+    for (let i = 0; i < testSim.grid.length; i++) {
+        if (testSim.grid[i] !== gridBefore[i]) changedCells++;
+    }
 
-        // Ensure NOT ALL ants are trivial
-        if (trivialAnts > antCount * 0.8) return false;
+    let paintedCells = 0;
+    const uniqueNonZeroColors = new Set();
+    for (let i = 0; i < testSim.grid.length; i++) {
+        const v = testSim.grid[i];
+        if (v !== 0) {
+            paintedCells++;
+            uniqueNonZeroColors.add(v);
+        }
+    }
 
-        // Ensure diversity
-        if (uniqueStates < 3) return false;
+    const colorCount = Object.keys(rules[0] || {}).length;
+    const minNonZeroColors = Math.min(4, Math.max(1, Math.floor((colorCount - 1) / 2)));
 
-        return true;
-    },
+    const minChangedCells = Math.max(12, Math.min(300, colorCount * 10));
+    const minPaintedCells = Math.max(40, Math.min(800, colorCount * 30));
+
+    if (changedCells < minChangedCells) return false;
+    if (paintedCells < minPaintedCells) return false;
+    if (uniqueNonZeroColors.size < minNonZeroColors) return false;
+
+    return true;
+},
+
 
 
 
@@ -290,156 +705,120 @@ const RuleGenerators = {
         const clampX = (x) => Math.max(2, Math.min(width - 3, Math.floor(x)));
         const clampY = (y) => Math.max(2, Math.min(height - 3, Math.floor(y)));
 
-        // MODE: 'nexus' (The Big Bang)
-        // All ants spawn at the exact center.
-        if (mode === 'nexus') {
-            return { x: centerX, y: centerY };
-        }
-
         switch (mode) {
-            case 'center':
+            case 'center': {
                 return { x: centerX, y: centerY };
+            }
+            case 'line': {
+                const spacing = 6;
+                const offset = index - Math.floor(totalCount / 2);
+                return { x: clampX(centerX + offset * spacing), y: centerY };
+            }
+            case 'vertical': {
+                const spacing = 6;
+                const offset = index - Math.floor(totalCount / 2);
+                return { x: centerX, y: clampY(centerY + offset * spacing) };
+            }
 
-            case 'cluster':
-                const margin = 0.35; // Tighter cluster (was 0.25)
-                return {
-                    x: clampX(width * (margin + Math.random() * (1 - 2 * margin))),
-                    y: clampY(height * (margin + Math.random() * (1 - 2 * margin)))
-                };
-
-            case 'random_scatter':
-                // Central 60% of the screen
-                const scatterMargin = 0.2;
-                return {
-                    x: clampX(width * (scatterMargin + Math.random() * (1 - 2 * scatterMargin))),
-                    y: clampY(height * (scatterMargin + Math.random() * (1 - 2 * scatterMargin)))
-                };
-
-            case 'linear':
-                const linSpacing = 10; // Tighten spacing (was 20)
-                return {
-                    x: clampX((centerX + (index - totalCount / 2) * linSpacing)),
-                    y: centerY
-                };
-
-            case 'grid':
-                // Attempt to make a nice grid
-                const cols = Math.ceil(Math.sqrt(totalCount));
-                const rows = Math.ceil(totalCount / cols);
-                const col = index % cols;
-                const row = Math.floor(index / cols);
-                // Reduce spread to 30% of screen (was 50%)
-                const spacingX = Math.floor(width * 0.3 / cols);
-                const spacingY = Math.floor(height * 0.3 / rows);
-                const startX = centerX - ((cols - 1) * spacingX) / 2;
-                const startY = centerY - ((rows - 1) * spacingY) / 2;
-                return {
-                    x: clampX(startX + col * spacingX),
-                    y: clampY(startY + row * spacingY)
-                };
-
-            case 'corners':
-                // 4 corners, but pulled in significantly (30% inset)
-                const ox = Math.floor(width * 0.3);
-                const oy = Math.floor(height * 0.3);
-                const corners = [
-                    { x: ox, y: oy },
-                    { x: width - ox, y: oy },
-                    { x: width - ox, y: height - oy },
-                    { x: ox, y: height - oy }
-                ];
-                const c = corners[index % 4];
-                return { x: clampX(c.x), y: clampY(c.y) };
-
-            case 'edges':
-                // 4 edge midpoints, pulled in (30% inset)
-                const ex = Math.floor(width * 0.3);
-                const ey = Math.floor(height * 0.3);
-                const edges = [
-                    { x: centerX, y: ey },            // Top
-                    { x: width - ex, y: centerY },    // Right
-                    { x: centerX, y: height - ey },   // Bottom
-                    { x: ex, y: centerY }             // Left
-                ];
-                const e = edges[index % 4];
-                return { x: clampX(e.x), y: clampY(e.y) };
-
-            case 'diagonal_cross':
-                // X shape
-                const step = 5; // Reduced step (was 8)
+            case 'cross': {
+                const spacing = 6;
                 const leg = index % 4;
                 const dist = Math.floor(index / 4) + 1;
-                let dx = 0, dy = 0;
-                if (leg === 0) { dx = -1; dy = -1; }
-                else if (leg === 1) { dx = 1; dy = -1; }
-                else if (leg === 2) { dx = 1; dy = 1; }
-                else { dx = -1; dy = 1; }
 
-                return {
-                    x: clampX(centerX + dx * dist * step * 2),
-                    y: clampY(centerY + dy * dist * step * 2)
+                switch (leg) {
+                    case 0: return { x: centerX, y: clampY(centerY - dist * spacing) }; // Up
+                    case 1: return { x: clampX(centerX - dist * spacing), y: centerY }; // Left
+                    case 2: return { x: centerX, y: clampY(centerY + dist * spacing) }; // Down
+                    default: return { x: clampX(centerX + dist * spacing), y: centerY }; // Right
+                }
+            }
+
+            case 'diamond': {
+                const spacing = 6;
+                const ring = Math.floor(index / 4) + 1;
+                const pos = index % 4;
+                
+                const dx = pos === 1 || pos === 2 ? ring : -ring;
+                const dy = pos >= 2 ? ring : -ring;
+
+                return { 
+                    x: clampX(centerX + dx * spacing), 
+                    y: clampY(centerY + dy * spacing) 
                 };
+            }
+        
 
-            case 'cross':
-                // + shape
-                const cStep = 6; // Reduced step (was 10)
-                const cLeg = index % 4;
-                const cDist = Math.floor(index / 4) + 1;
-                /* 
-                   0: Up
-                   1: Right
-                   2: Down
-                   3: Left
-                */
-                if (cLeg === 0) return { x: centerX, y: clampY(centerY - cDist * cStep) };
-                if (cLeg === 1) return { x: clampX(centerX + cDist * cStep), y: centerY };
-                if (cLeg === 2) return { x: centerX, y: clampY(centerY + cDist * cStep) };
-                return { x: clampX(centerX - cDist * cStep), y: centerY };
-
-            case 'ring_burst':
-                // Concentric circles
-                const ringCount = Math.ceil(totalCount / 8);
-                const currentRing = Math.floor(index / 8);
-                const posInRing = index % 8;
-                // Reduced radius (was 15 + 15)
-                const ringRadius = 8 + (currentRing * 8);
-                const ringAngle = (posInRing / 8) * 2 * Math.PI;
-                return {
-                    x: clampX(centerX + Math.cos(ringAngle) * ringRadius),
-                    y: clampY(centerY + Math.sin(ringAngle) * ringRadius),
-                    angle: ringAngle // Pass through for facing logic
-                };
-
-            case 'cascade':
-                const cMargin = 0.35; // More central cascade
-                const cW = width * (1 - 2 * cMargin);
-                const cH = height * (1 - 2 * cMargin);
-                return {
-                    x: clampX(width * cMargin + (index * (cW / totalCount))),
-                    y: clampY(height * cMargin + (index * (cH / totalCount)))
-                };
-
-            case 'spiral':
-            case 'flower':
-            case 'mandala':
-            default:
-                const angle = (index / totalCount) * 2 * Math.PI;
-                // Reduced radius (was 0.25 = 25%) -> now 15%
+            case 'ring': {
                 const radius = Math.min(width, height) * 0.15;
-                return {
-                    x: clampX(centerX + Math.cos(angle) * radius),
+                const angle = (index / totalCount) * 2 * Math.PI;
+            
+                return { 
+                    x: clampX(centerX + Math.cos(angle) * radius), 
                     y: clampY(centerY + Math.sin(angle) * radius),
-                    angle: angle
+                    angle
                 };
+            }
+
+            case 'grid3': {
+                const spacing = 8;
+                const col = index % 3;
+                const row = Math.floor(index / 3) % 3;
+
+                return { 
+                    x: clampX(centerX + (col - 1) * spacing), 
+                    y: clampY(centerY + (row - 1) * spacing) 
+                };
+            }
+
+            case 'diagonal': {
+                const spacing = 6;
+                const offset = index - Math.floor(totalCount / 2);
+
+                return { 
+                    x: clampX(centerX + offset * spacing), 
+                    y: clampY(centerY + offset * spacing) 
+                };
+            }
+                
+            case 'corners': {
+                const insetX = Math.floor(width * 0.3);
+                const insetY = Math.floor(height * 0.3);
+
+                const corners = [
+                    { x: insetX, y: insetY }, // Top-left
+                    { x: width - insetX, y: insetY }, // Top-right
+                    { x: width - insetX, y: height - insetY }, // Bottom-right
+                    { x: insetX, y: height - insetY },
+                ];
+            
+                const c = corners[index % 4];
+                return { x: clampX(c.x), y: clampY(c.y) };
+            }
+
+            default:
+                return { x: centerX, y: centerY };
         }
     }
 };
 
+        
+
 // Helper functions
 function getWeightedCount(min = 2) {
     const r = Math.random();
-    if (r < 0.85) return Math.floor(Math.random() * (5 - min)) + min; // min to 4
-    return Math.floor(Math.random() * 2) + 5; // 5-6 (rare)
+
+    const normalMax = 4;
+    const normalMin = Math.min(min, normalMax);
+    
+    if (r < 0.85) 
+        return Math.floor(Math.random() * (normalMax - normalMin + 1)) + normalMin;
+    {     
+    
+    const rareMin = Math.max(5, min);
+    const rareMax = rareMin + 1;
+
+    return Math.floor(Math.random() * (rareMax - rareMin +1)) + rareMin;    
+    }
 }
 
 function applyCARule(left, center, right, numColors, numStates) {

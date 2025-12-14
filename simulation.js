@@ -7,7 +7,6 @@ import { cloneStructured } from './utils.js';
  * Pure logic, no DOM or Canvas dependencies.
  */
 
-// Direction Constants
 export const DIR = {
     N: 0,
     E: 1,
@@ -15,13 +14,13 @@ export const DIR = {
     W: 3
 };
 
-// Turn Constants
 export const TURN = {
-    L: -1, // Left
-    R: 1,  // Right
-    U: 2,  // U-turn
-    N: 0   // No turn
+    L: -1,
+    R: 1,
+    U: 2,
+    N: 0
 };
+
 
 /**
  * @typedef {Object} Ant
@@ -48,6 +47,7 @@ class AntSimulation {
      * @param {number} height - Grid height
      */
     constructor(width, height) {
+        this.enableHistory = true;
         this.width = width;
         this.height = height;
         /** @type {Uint8Array} */
@@ -66,9 +66,9 @@ class AntSimulation {
         this.orientations = new Uint8Array(width * height);
         this.toggleOrientationOnVisit = false;
 
-        this.history = [];
-        this.historyLimit = 10;
-        this.SNAPSHOT_INTERVAL = 500;
+        this.history = [];              //Legacy: snapshots disabled
+        this.historyLimit = 0;         // No history retention
+        this.SNAPSHOT_INTERVAL = Infinity;   // Never snapshot
         this.stepCount = 0;
 
         this.addAnt(Math.floor(width / 2), Math.floor(height / 2), 0);
@@ -81,6 +81,7 @@ class AntSimulation {
      * @param {0|1|2|3} facing - Initial direction
      * @returns {Ant} The created ant
      */
+
     addAnt(x, y, facing) {
         const ant = { x, y, facing, state: 0 };
         this.ants.push(ant);
@@ -88,88 +89,75 @@ class AntSimulation {
     }
 
     /**
-     * Updates simulation by N steps
-     * @param {number} steps - Number of steps to execute
+     * Executes a single simulation step for all ants.
+     * @returns {void}
      */
-    update(steps) {
-        // Local references for performance
-        const { width, height, grid, rules, orientations, toggleOrientationOnVisit } = this;
+    step() {
 
-        for (let i = 0; i < steps; i++) {
-            this.stepCount++;
+        this.enableHistory = false;
 
-            // History Snapshot
-            if (this.stepCount % this.SNAPSHOT_INTERVAL === 0) {
-                this.snapshot(); // Periodic checkpoint for undo/redo without tracking every single step
-            }
+        const { width, height, grid, rules } = this;
 
-            // Iterate through all ants
-            for (let a = 0; a < this.ants.length; a++) {
-                const ant = this.ants[a];
-                let { x, y, facing, state } = ant;
+        for (let a = 0; a < this.ants.length; a++) {
+            const ant = this.ants[a];
+            let { x, y, facing, state } = ant;
 
-                // 1. Read current cell color
-                const index = y * width + x;
-                const currentColor = grid[index];
+            const index = y * width + x;
+            const currentColor = grid[index];
 
-                // 3. Simple Rule Resolution
-                const stateRules = rules[state];
-                if (!stateRules) continue;
+            const stateRules = rules[state];
+            if (!stateRules) continue;
 
-                const rule = stateRules[currentColor];
-                if (!rule) continue;
+            const rule = stateRules[currentColor];
+            if (!rule) continue;
 
-                // 3. Write new color
-                if (grid[index] !== rule.write) {
-                    grid[index] = rule.write;
-                    this.dirtyCells.add(index);
-                }
-                // Even if the color doesn't change, the ant vacates this cell; mark it dirty so rendering restores the base grid color.
+            if (grid[index] !== rule.write) {
+                grid[index] = rule.write;
                 this.dirtyCells.add(index);
-                if (toggleOrientationOnVisit && orientations.length === grid.length) {
-                    orientations[index] = 1 - orientations[index];
-                }
-
-                // 4. Update State
-                state = rule.nextState;
-
-                // 5. Turn
-                if (rule.turn === TURN.U) {
-                    // U-turn: reverse direction (add 2, wrap)
-                    facing = (facing + 2) % 4;
-                } else {
-                    // Normal turn: L=-1, R=1, N=0
-                    facing = (facing + rule.turn + 4) % 4;
-                }
-                // This ensures:
-                // North (0) + U-turn = South (2)
-                // East (1) + U-turn = West (3)
-                // South (2) + U-turn = North (0)
-                // West (3) + U-turn = East (1)
-
-                // 6. Move
-                switch (facing) {
-                    case DIR.N: y--; break;
-                    case DIR.E: x++; break;
-                    case DIR.S: y++; break;
-                    case DIR.W: x--; break;
-                }
-
-                // 7. Handle Boundaries (Wrap)
-                if (x < 0) x = width - 1;
-                else if (x >= width) x = 0;
-
-                if (y < 0) y = height - 1;
-                else if (y >= height) y = 0;
-
-                // Write back to ant object
-                ant.x = x;
-                ant.y = y;
-                ant.facing = facing;
-                ant.state = state;
             }
+
+            // Update State
+            state = rule.nextState;
+
+            if (rule.turn === TURN.U) {
+                facing = (facing + 2) % 4;
+            } else {
+                facing = (facing + rule.turn + 4) % 4;
+            }
+
+            switch (facing) {
+                case DIR.N: y--; break;
+                case DIR.E: x++; break;
+                case DIR.S: y++; break;
+                case DIR.W: x--; break;
+            }
+
+            if (x < 0) x = width - 1;
+            else if (x >= width) x = 0;
+
+            if (y < 0) y = height - 1;
+            else if (y >= height) y = 0;
+
+            ant.x = x;
+            ant.y = y;
+            ant.state = state;
+            ant.facing = facing;
         }
+
+        this.stepCount++;
     }
+
+    /**
+     * Advances the simulation by N steps.
+     * @param {number} [steps=1] - Number of steps to execute.
+     * @returns {void}
+     */
+    update(steps = 1) {
+    for (let i = 0; i < steps; i++) {
+        this.step();
+    }
+}
+
 
     snapshot() {
         // Deep copy state
@@ -212,9 +200,7 @@ class AntSimulation {
         this.dirtyCells.clear();
     }
 
-    /**
-     * Resets the grid and ants.
-     */
+
     reset() {
         this.grid.fill(0);
         this.orientations.fill(0);
@@ -224,13 +210,17 @@ class AntSimulation {
         this.stepCount = 0;
         this.dirtyCells.clear();
     }
-
+    // Removes test ant generated during ruleGenerator when using testSim.reset()
+    clearAnts() {
+        this.ants.length = 0;
+    }
     /**
-     * Sets the rules for the simulation.
      * @param {Object} newRules - The new rule set.
      */
     setRules(newRules) {
         this.rules = newRules;
     }
 }
+
 export { AntSimulation };
+

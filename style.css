@@ -150,6 +150,46 @@ canvas {
     max-width: 280px;
 }
 
+#stepOverlay {
+    opacity: 0.75;
+}
+
+.step-overlay-value {
+    display: none;
+}
+
+#statsOverlay:hover .step-overlay-value {
+    display: inline;
+}
+
+#statsOverlay:hover .step-overlay-hint {
+    display: none;
+}
+
+#hotkeyHintOverlay {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    z-index: 110;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.85);
+    user-select: none;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+#spawnOverlay {
+    opacity: 0.75;
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.7);
+}
+
 #rulesetDisplay {
     font-size: 1.2em;
     font-weight: bold;
@@ -188,8 +228,10 @@ canvas {
     font-family: 'Courier New', monospace;
     display: flex;
     flex-direction: column;
-    min-width: 250px;
-    transition: min-height 0.3s ease, padding 0.3s ease, min-width 0.3s ease;
+    width: 300px;
+    min-width: 300px;
+    max-width: 400px;
+    transition: min-height 0.3s ease, padding 0.3s ease, min-width 0.3s ease, max-width 0.3s ease, width 0.3s ease;
     gap: 5px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }

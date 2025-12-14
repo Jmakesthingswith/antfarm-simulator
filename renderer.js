@@ -203,8 +203,8 @@ class GridRenderer {
 
 
     // NOTE:
-    // Palette generation intentionally uses HSL for proposal and CIELAB for judgement.
-    // Avoid reintroducing luminance-based heuristics or multiple brightness models.
+    // Palette generation uses HSL for proposals and CIELAB (ΔE) for distance checks.
+    // Avoid introducing additional brightness models without updating the acceptance criteria.
 
     generateRandomPalette(count) {
         const palette = [];
@@ -218,19 +218,16 @@ class GridRenderer {
         const jitter = (amp) => (Math.random() * amp * 2) - amp;
         const normalizeHue = (h) => ((h % 360) + 360) % 360;
 
-        // 1. Generate Background (Color 0)
-        const background = this.normalizeColor('#000000ff');
+        const background = this.normalizeColor('#000000');
         palette.push(background);
         usedColors.add(background);
 
         const backgroundLab = this._convertToLab(background);
         usedLabByColor.set(background, backgroundLab);
-        let anchorSat = null;
-        let anchorLight = null;
 
-        // 2. Generate Active Colors
         for (let i = 1; i < count; i++) {
             let attempts = 0;
+
             let chosenColor = null;
             let chosenLab = null;
 
@@ -307,7 +304,7 @@ class GridRenderer {
                 // ΔE separation from existing palette
                 if (this.isTooSimilar(normalizedCandidate, usedColors, usedLabByColor, candidateLab)) continue;
 
-                // Extra hierarchy for cool greens to avoid muddy palettes
+                // Extra hierarchy for cool greens to avoid muddy palettes - they are more sensitive to luminance clashes. Needs adjustment.
                 const isCoolGreen = hue > 120 && hue <= 160;
                 if (isCoolGreen) {
                     for (const used of usedColors) {
@@ -317,6 +314,9 @@ class GridRenderer {
                         }
                     }
                 }
+
+                let anchorSat = null;
+                let anchorLight = null;
 
                 // Palette harmony anchoring to avoid drift
                 if (i === 1) {
@@ -375,8 +375,19 @@ class GridRenderer {
 
     generateLangtonPalette() {
         const background = this.normalizeColor('#000000');
-        const light = 88;
-        const active = this.normalizeColor(`hsl(0, 0%, ${light}%)`); // Desaturated "white" with tuned lightness.
+        const backgroundLab = this._convertToLab(background);
+
+        const ACTIVE_LIGHTNESS = 88;
+        let active = this.normalizeColor(`hsl(0, 0%, ${ACTIVE_LIGHTNESS}%)`); // Desaturated "white" with tuned lightness.
+        const activeLab = this._convertToLab(active);
+
+        // Ensure sufficient contrast between background and active color.
+        if (this.calculateDeltaE(backgroundLab, activeLab) < this.MIN_BACKGROUND_DELTA_E) {
+            // fallback: force higher contrast
+            active = this.normalizeColor(`hsl(0, 0%, 94%)`);
+        }
+       
+       
         return [background, active];
     }
 
@@ -453,7 +464,7 @@ class GridRenderer {
 
                 if (state !== 0) {
                     if (this.renderMode === 'truchet') {
-                        const orientation = orientations ? orientations[index] : 0;
+                        const orientation = state & 1;
                         this.drawTruchetCell(ctx, x, y, cellSize, state, currentPalette, paletteLen, orientation);
                     } else {
                         const colorIndex = this.getColorIndex(state, paletteLen);
@@ -471,7 +482,7 @@ class GridRenderer {
                     const state = grid[y * width + x];
                     if (state !== 0) {
                         if (this.renderMode === 'truchet') {
-                            const orientation = orientations ? orientations[y * width + x] : 0;
+                            const orientation = state & 1;
                             this.drawTruchetCell(ctx, x, y, cellSize, state, currentPalette, paletteLen, orientation);
                         } else {
                             // Default Block Rendering
@@ -493,39 +504,29 @@ class GridRenderer {
     drawTruchetCell(ctx, x, y, size, state, palette, paletteLen, orientation = 0) {
         // State 0 is transparent (handled by clearRect)
         // States 1-4 correspond to rotations/splits
-        if (state === 0) {
-            return;
-        }
+        if (state === 0) return;
 
-        // Primary Color Index
         const colorIndex = this.getColorIndex(state, paletteLen);
         const primaryColor = palette[colorIndex];
-        const secondaryColor = palette[0]; // Background
 
         const px = x * size;
         const py = y * size;
 
-        // Draw Background
-        ctx.fillStyle = secondaryColor;
-        ctx.fillRect(px, py, size, size);
-
         ctx.fillStyle = primaryColor;
-        ctx.globalAlpha = 1.15;
+        ctx.globalAlpha = 1;
         
-
-        // Draw Triangle based on orientation (0: '/', 1: '\')
         ctx.beginPath();
-        if (orientation % 2 === 0) { // /
-            ctx.moveTo(x * size, y * size + size);
-            ctx.lineTo(x * size + size, y * size);
-            ctx.lineTo(x * size, y * size);
-        } else { // \
-            ctx.moveTo(x * size, y * size);
-            ctx.lineTo(x * size + size, y * size + size);
-            ctx.lineTo(x * size + size, y * size);
+        // Draw two triangles to form the Truchet pattern
+        if (orientation % 2 === 0) { 
+            ctx.moveTo(px, py + size);
+            ctx.lineTo(px + size, py);
+            ctx.lineTo(px, py);
+        } else {
+            ctx.moveTo(px, py);
+            ctx.lineTo(px + size, py + size);
+            ctx.lineTo(px + size, py);
         }
         ctx.fill();
-        ctx.globalAlpha = 1.0;
     }
 
     // Updates the parallax offset based on normalized mouse coordinates (-1 to 1)
@@ -544,7 +545,6 @@ class GridRenderer {
         // Blur is intentionally disabled here; palette[0] is the background and we rely on crisp pixels for both modes.
         ctx.filter = 'none';
 
-        // Clear Main Canvas
         ctx.fillStyle = this.currentPalette[0]; // Fill with black to cover edges during wiggle
         ctx.fillRect(0, 0, width, height);
 
@@ -564,33 +564,27 @@ class GridRenderer {
             this.currentParallaxY = 0;
         }
 
-        // Calculate Pixel Offsets
         const maxOffset = 15; // Max pixels to shift
         const bgX = this.currentParallaxX * maxOffset;
         const bgY = this.currentParallaxY * maxOffset;
 
-        // 1. Draw Grid (if enabled)
         if (this.showGrid) {
             ctx.drawImage(this.gridCanvas, bgX, bgY);
         }
 
-        // Draw Ants (Foreground) - Parallax slightly MORE for depth
         const parallaxMult = 2.0;
         const fgX = bgX * parallaxMult;
         const fgY = bgY * parallaxMult;
 
-        // 3. Draw Active Cells (Transparent background)
         ctx.drawImage(this.offscreenCanvas, fgX, fgY);
 
         for (const ant of ants) {
             const antX = (ant.x * cellSize) + fgX;
             const antY = (ant.y * cellSize) + fgY;
 
-            // Draw Body
             ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
             ctx.fillRect(antX, antY, cellSize, cellSize);
 
-            // Draw Head
             ctx.fillStyle = '#FF0000';
             const half = cellSize / 2;
             const qtr = cellSize / 4;
