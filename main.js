@@ -336,6 +336,9 @@ function init() {
         appState.currentRules = preset.rules;
         appState.sim.setRules(appState.currentRules);
     }
+    appState.renderer.setCustomPalette(appState.renderer.generateLangtonPalette());
+    if (themeSelect) themeSelect.value = "Custom";
+    updateColorPicker();
     // Fresh spawn with controlled randomness (direction/offset/state) without grid noise.
     respawnWithJitter();
     renderRuleSummary();
@@ -423,13 +426,13 @@ function updateColorPicker() {
 
         const input = document.createElement('input');
         input.type = 'color';
-        input.value = color;
+        input.value = appState.renderer.colorToHex6(color);
 
         // Prevent click propagation to avoid weird issues
         input.addEventListener('click', (e) => e.stopPropagation());
 
         input.addEventListener('input', (e) => {
-            const newColor = e.target.value;
+            const newColor = appState.renderer.applyHex6KeepingAlpha(appState.renderer.currentPalette[index], e.target.value);
             swatch.style.backgroundColor = newColor;
 
             // Update palette
@@ -895,8 +898,8 @@ function setupControls() {
 
                 // Dynamic Theme Injection
                 if (e.target.value === "Langton's Ant") {
-                    renderer.setPalette("Classic");
-                    themeSelect.value = "Classic";
+                    renderer.setCustomPalette(renderer.generateLangtonPalette());
+                    themeSelect.value = "Custom";
                 } else {
                     // Calculate required colors from state 0 (representative)
                     const numColors = Object.keys(preset.rules[0]).length;

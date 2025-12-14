@@ -5,10 +5,19 @@
  */
 
 class GridRenderer {
+    
     constructor(canvas) {
+        this.MIN_DELTA_E = 25; // Minimum Delta E for color distinction
+        this.MIN_BACKGROUND_DELTA_E = 38;
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d', { alpha: false }); // Optimize for no transparency
         this.cellSize = 4; // Default cell size in pixels
+
+        // Tiny parsing canvas used for normalizing arbitrary CSS colors into RGB(A).
+        this._colorParseCanvas = document.createElement('canvas');
+        this._colorParseCanvas.width = 1;
+        this._colorParseCanvas.height = 1;
+        this._colorParseCtx = this._colorParseCanvas.getContext('2d', { willReadFrequently: true });
 
         // Offscreen Canvas for Grid Caching
         this.offscreenCanvas = document.createElement('canvas');
@@ -18,6 +27,11 @@ class GridRenderer {
         this.gridCanvas = document.createElement('canvas');
         this.gridCtx = this.gridCanvas.getContext('2d', { alpha: true });
         this.showGrid = false;
+
+        // Cache invalidation flags to prevent stale renders when the simulation swaps buffers (e.g. preset load/reset).
+        this._lastGridRef = null;
+        this._lastOrientationsRef = null;
+        this._needsFullRedraw = true;
 
         // Color Palettes (Max 5 colors per theme)
         this.palettes = {
@@ -56,11 +70,101 @@ class GridRenderer {
             ]
         };
 
+        for (const name of Object.keys(this.palettes)) {
+            this.palettes[name] = this.normalizePalette(this.palettes[name]);
+        }
+
         this.currentPalette = this.palettes["Classic"];
         this.renderMode = 'default';
         this.use3D = false; // Default to 3D enabled
 
 
+    }
+
+    // NOTE: _colorParseCtx is intentionally private and used only for color normalization.
+    // Do not reuse it for rendering or previews.
+
+    // Palette colors are stored internally as canonical rgba(...) strings.
+    // Alpha is preserved internally but is not editable via the color picker.
+
+
+    _parseColorToRgba(color) {
+        const ctx = this._colorParseCtx;
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, 1, 1);
+        const data = ctx.getImageData(0, 0, 1, 1).data;
+        return { r: data[0], g: data[1], b: data[2], a: data[3] };
+    }
+
+    _rgbaToCss({ r, g, b, a }) {
+        const alpha = Math.max(0, Math.min(1, a / 255));
+        const alphaStr = alpha === 1 ? '1' : alpha.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+        return `rgba(${r}, ${g}, ${b}, ${alphaStr})`;
+    }
+
+    _rgbToHex6(r, g, b) {
+        const to2 = (n) => n.toString(16).padStart(2, '0');
+        return `#${to2(r)}${to2(g)}${to2(b)}`;
+    }
+
+    _srgbToLinear(channel255) {
+        const c = channel255 / 255;
+        return c <= 0.04045 ? (c / 12.92) : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+
+    _rgbToLab(r, g, b) {
+        // sRGB (D65) -> CIELAB
+        const R = this._srgbToLinear(r);
+        const G = this._srgbToLinear(g);
+        const B = this._srgbToLinear(b);
+
+        // Linear RGB -> XYZ (D65)
+        const X = (R * 0.4124564) + (G * 0.3575761) + (B * 0.1804375);
+        const Y = (R * 0.2126729) + (G * 0.7151522) + (B * 0.0721750);
+        const Z = (R * 0.0193339) + (G * 0.1191920) + (B * 0.9503041);
+
+        // Normalize by D65 reference white
+        const Xn = 0.95047;
+        const Yn = 1.0;
+        const Zn = 1.08883;
+
+        const f = (t) => (t > 0.008856 ? Math.cbrt(t) : ((7.787 * t) + (16 / 116)));
+        const fx = f(X / Xn);
+        const fy = f(Y / Yn);
+        const fz = f(Z / Zn);
+
+        const L = (116 * fy) - 16;
+        const a = 500 * (fx - fy);
+        const b2 = 200 * (fy - fz);
+        return { L, a, b: b2 };
+    }
+
+    _convertToLab(color) {
+        const { r, g, b } = this._parseColorToRgba(color);
+        return this._rgbToLab(r, g, b);
+    }
+
+    // normalizeColor is normalizing to renderer-canonical RGBA CSS strings
+    normalizeColor(color) {
+        const rgba = this._parseColorToRgba(color);
+        return this._rgbaToCss(rgba);
+    }
+
+    normalizePalette(colors) {
+        return colors.map((c) => this.normalizeColor(c));
+    }
+
+    colorToHex6(color) {
+        const { r, g, b } = this._parseColorToRgba(color);
+        return this._rgbToHex6(r, g, b);
+    }
+
+    applyHex6KeepingAlpha(existingColor, hex6Color) {
+        const { a } = this._parseColorToRgba(existingColor);
+        const { r, g, b } = this._parseColorToRgba(hex6Color);
+        return this._rgbaToCss({ r, g, b, a });
     }
 
     setShowGrid(visible) {
@@ -70,6 +174,7 @@ class GridRenderer {
 
     setRenderMode(mode) {
         this.renderMode = mode;
+        this._needsFullRedraw = true;
     }
 
     set3D(enabled) {
@@ -79,69 +184,200 @@ class GridRenderer {
     setScale(newScale) {
         this.cellSize = Math.max(1, Math.floor(Math.min(28, newScale)));
         this.resize(this.width, this.height);
+        this._needsFullRedraw = true;
     }
 
     setPalette(name) {
         if (this.palettes[name]) {
             this.currentPalette = this.palettes[name];
+            this._needsFullRedraw = true;
         }
     }
 
     setCustomPalette(colors) {
-        this.currentPalette = colors;
-        this.palettes["Custom"] = colors;
+        const normalized = this.normalizePalette(colors);
+        this.currentPalette = normalized;
+        this.palettes["Custom"] = normalized;
+        this._needsFullRedraw = true;
     }
+
+
+    // NOTE:
+    // Palette generation intentionally uses HSL for proposal and CIELAB for judgement.
+    // Avoid reintroducing luminance-based heuristics or multiple brightness models.
 
     generateRandomPalette(count) {
         const palette = [];
         const baseHue = Math.floor(Math.random() * 360);
-        const strategies = ['analogous', 'triadic', 'complementary', 'vibrant'];
+        const strategies = ['analogous', 'triadic', 'complementary', 'warmCool', 'vibrant'];
         const strategy = strategies[Math.floor(Math.random() * strategies.length)];
-        const normalize = (color) => color.toLowerCase();
         const usedColors = new Set();
+        const usedLabByColor = new Map();
 
-        // 1. Generate Background (Color 0) - Constant Black
-        const background = '#0d0d0dff';
+        const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+        const jitter = (amp) => (Math.random() * amp * 2) - amp;
+        const normalizeHue = (h) => ((h % 360) + 360) % 360;
+
+        // 1. Generate Background (Color 0)
+        const background = this.normalizeColor('#000000ff');
         palette.push(background);
-        usedColors.add(normalize(background));
+        usedColors.add(background);
 
-        // 2. Generate Active Colors (ensure no duplicates)
+        const backgroundLab = this._convertToLab(background);
+        usedLabByColor.set(background, backgroundLab);
+        let anchorSat = null;
+        let anchorLight = null;
+
+        // 2. Generate Active Colors
         for (let i = 1; i < count; i++) {
-            let hue, sat, light, candidate, attempts = 0;
-            const TARGET_SAT = 55 + Math.random() * 15; // Range: 55% to 70%
-            const TARGET_LIGHT = 35 + Math.random() * 10; // Range: 35% to 45% (Darker)
-            do {
-                if (strategy === 'analogous') {
-                    hue = (baseHue + (i * 20) + attempts * 7) % 360;
-                    sat = 60 + Math.random() * 15;
-                    light = 40 + Math.random() * 10;
-                } else if (strategy === 'complementary') {
-                    hue = ((i % 2 === 0) ? baseHue : (baseHue + 180)) % 360;
-                    hue = (hue + attempts * 11) % 360;
-                    sat = TARGET_SAT;
-                    light = TARGET_LIGHT;
-                } else if (strategy === 'triadic') {
-                    hue = (baseHue + (i * 120) + attempts * 13) % 360;
-                    sat = TARGET_SAT;
-                    light = TARGET_LIGHT;
-                } else { // Vibrant / Random Pop
-                    hue = (baseHue + (i * 90) + attempts * 17) % 360; // Wide spread with jitter
-                    sat = 70 + Math.random() * 20;
-                    light = TARGET_LIGHT;
-                }
-                candidate = `hsl(${hue}, ${sat}%, ${light}%)`;
-                attempts++;
-                // After several attempts, fall back to a random hue to force uniqueness
-                if (attempts > 8) {
-                    const fallbackHue = Math.floor(Math.random() * 360);
-                    candidate = `hsl(${fallbackHue}, 60%, 40%)`;
-                }
-            } while (usedColors.has(normalize(candidate)) && attempts < 12);
+            let attempts = 0;
+            let chosenColor = null;
+            let chosenLab = null;
 
-            usedColors.add(normalize(candidate));
-            palette.push(candidate);
+            attemptLoop:
+            while (attempts < 30 && !chosenColor) {
+                attempts += 1;
+
+                
+                let sat = clamp(78 + jitter(5), 68, 88);
+                let light = clamp(50 + jitter(4), 44, 62);
+
+                let hue;
+                const drift = Math.min(attempts * 6, 48);
+                switch (strategy) {
+                    case 'analogous': {
+                        hue = baseHue + ((i - 1) * 28) + jitter(10) + (drift * 0.35);
+                        break;
+                    }
+                    case 'complementary': {
+                        const pair = (i % 2 === 0) ? 0 : 180;
+                        const split = (count > 3 && i > 2) ? ((i % 4 < 2) ? -28 : 28) : 0;
+                        hue = baseHue + pair + split + jitter(12) + (drift * 0.45);
+                        break;
+                    }
+                    case 'triadic': {
+                        hue = baseHue + (((i - 1) % 3) * 120) + jitter(12) + (drift * 0.35);
+                        break;
+                    }
+                    case 'warmCool': {
+                        const isWarm = i % 2 === 0;
+                        hue = baseHue + (isWarm ? 45 : 225) + jitter(18) + (drift * 0.35);
+                        break;
+                    }
+                    default: { // vibrant
+                        // Golden-angle spacing distributes hues well for arbitrary counts.
+                        hue = baseHue + (i * 137.508) + jitter(14) + (drift * 0.25);
+                        break;
+                    }
+                }
+
+                hue = normalizeHue(hue);
+                light = light + ((light - 50) * 0.08);
+
+                // Hue-specific tuning to keep perceived brightness more consistent.
+                if (hue >= 35 && hue <= 85) { // yellows can blow out
+                    sat = clamp(sat,     55, 92);
+                    light = clamp(light, 38, 62);
+                } else if (hue >= 90 && hue <= 120) { // yellow-green (warmer)
+                    sat = clamp(sat,     55, 92);
+                    light = clamp(light, 38, 60);
+                } else if (hue > 120 && hue <= 160) { // cool green / mint
+                    sat = clamp(sat,     50, 78);
+                    light = clamp(light, 38, 52);
+                } else if (hue >= 200 && hue <= 260) { // blues are often too dark at the same L
+                    light = clamp(light + 3, 44, 64);
+                } else if (hue >= 260 && hue <= 320) { // purples can go muddy
+                    light = clamp(light + 4, 38, 62);
+                }
+
+                if (hue >= 25 && hue <= 55) { // orange
+                    sat = clamp(sat,     72, 92);
+                    light = clamp(light, 52, 70);
+                }
+
+                let candidate = `hsl(${Math.round(hue)}, ${Math.round(sat)}%, ${Math.round(light)}%)`;
+                let normalizedCandidate = this.normalizeColor(candidate);
+                let candidateLab = this._convertToLab(normalizedCandidate);
+
+
+                // Enforce perceptual separation from background and between palette entries.
+                if (this.calculateDeltaE(candidateLab, backgroundLab) < 38) continue;
+                // No duplicates
+                if (usedColors.has(normalizedCandidate)) continue;
+                // ΔE separation from existing palette
+                if (this.isTooSimilar(normalizedCandidate, usedColors, usedLabByColor, candidateLab)) continue;
+
+                // Extra hierarchy for cool greens to avoid muddy palettes
+                const isCoolGreen = hue > 120 && hue <= 160;
+                if (isCoolGreen) {
+                    for (const used of usedColors) {
+                        const usedLab = usedLabByColor.get(used);
+                        if (Math.abs(candidateLab.L - usedLab.L) < 16) {
+                            continue attemptLoop; // reject this attempt
+                        }
+                    }
+                }
+
+                // Palette harmony anchoring to avoid drift
+                if (i === 1) {
+                    anchorSat = sat;
+                    anchorLight = light;
+                } else if (anchorSat !== null) {
+                    sat = sat * 0.7 + anchorSat * 0.3;
+                    light = light * 0.7 + anchorLight * 0.3;
+                    sat   = clamp(sat,   50, 95);
+                    light = clamp(light, 38, 72);
+                }
+
+                chosenColor = normalizedCandidate;
+                chosenLab = candidateLab;
+
+            }
+
+            if (!chosenColor) {
+                const fallbackHue = Math.floor(Math.random() * 360);
+                chosenColor = this.normalizeColor(`hsl(${fallbackHue}, 75%, 52%)`);
+                chosenLab = this._convertToLab(chosenColor);
+            }
+
+            usedLabByColor.set(chosenColor, chosenLab);
+            usedColors.add(chosenColor);
+            palette.push(chosenColor);
         }
+
         return palette;
+    }
+
+    isTooSimilar(candidateColor, usedColors, usedLabByColor = null, candidateLab = null) {
+        const minDeltaE = this.MIN_DELTA_E;
+        const candidateLabValue = candidateLab || this._convertToLab(candidateColor);
+        for (const usedColor of usedColors) {
+            let usedLab = usedLabByColor ? usedLabByColor.get(usedColor) : null;
+            if (!usedLab) {
+                usedLab = this._convertToLab(usedColor);
+                if (usedLabByColor) usedLabByColor.set(usedColor, usedLab);
+            }
+            const deltaE = this.calculateDeltaE(candidateLabValue, usedLab);
+            if (deltaE < minDeltaE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    calculateDeltaE(lab1, lab2) {
+        // ΔE76 (Euclidean distance in CIELAB)
+        const deltaL = lab1.L - lab2.L;
+        const deltaA = lab1.a - lab2.a;
+        const deltaB = lab1.b - lab2.b;
+        return Math.sqrt(deltaL * deltaL + deltaA * deltaA + deltaB * deltaB);
+    }
+
+    generateLangtonPalette() {
+        const background = this.normalizeColor('#000000');
+        const light = 88;
+        const active = this.normalizeColor(`hsl(0, 0%, ${light}%)`); // Desaturated "white" with tuned lightness.
+        return [background, active];
     }
 
     resize(width, height) {
@@ -187,8 +423,15 @@ class GridRenderer {
     }
     // Updates the offscreen grid cache
     updateGrid(grid, dirtyCells, forceRedraw = false, orientations = null) {
+        if (grid !== this._lastGridRef || orientations !== this._lastOrientationsRef) {
+            this._needsFullRedraw = true;
+            this._lastGridRef = grid;
+            this._lastOrientationsRef = orientations;
+        }
+
+        const shouldForceRedraw = forceRedraw || this._needsFullRedraw;
         const hasDirtyCells = dirtyCells && dirtyCells.size > 0;
-        if (!forceRedraw && !hasDirtyCells) {
+        if (!shouldForceRedraw && !hasDirtyCells) {
             return false;
         }
 
@@ -199,7 +442,7 @@ class GridRenderer {
         const width = this.width;
         const height = this.height;
 
-        if (!forceRedraw && hasDirtyCells) {
+        if (!shouldForceRedraw && hasDirtyCells) {
             for (const index of dirtyCells) {
                 const x = index % width;
                 const y = Math.floor(index / width);
@@ -219,7 +462,7 @@ class GridRenderer {
                     }
                 }
             }
-        } else if (forceRedraw) {
+        } else if (shouldForceRedraw) {
             // Full Redraw of Offscreen Canvas
             ctx.clearRect(0, 0, this.offscreenCanvas.width, this.offscreenCanvas.height);
 
@@ -240,6 +483,7 @@ class GridRenderer {
                 }
             }
         }
+        this._needsFullRedraw = false;
         return true;
     }
 
@@ -266,6 +510,8 @@ class GridRenderer {
         ctx.fillRect(px, py, size, size);
 
         ctx.fillStyle = primaryColor;
+        ctx.globalAlpha = 1.15;
+        
 
         // Draw Triangle based on orientation (0: '/', 1: '\')
         ctx.beginPath();
@@ -279,6 +525,7 @@ class GridRenderer {
             ctx.lineTo(x * size + size, y * size);
         }
         ctx.fill();
+        ctx.globalAlpha = 1.0;
     }
 
     // Updates the parallax offset based on normalized mouse coordinates (-1 to 1)
