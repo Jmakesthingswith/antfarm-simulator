@@ -1198,8 +1198,10 @@ function setupControls() {
 
     autoRandomizeState = {
         enabled: false,
+        colorCyclingEnabled: true,
         timeoutId: null,
         monitorTimeoutId: null,
+        colorTimeoutId: null,
         monitorBaseMs: 4000,
         monitorJitterMs: 1500,
         lastGridSnapshot: null,
@@ -1207,7 +1209,9 @@ function setupControls() {
         lastStepCount: 0,
         stuckStrikes: 0,
         baseMs: 15000,
-        jitterMs: 5000
+        jitterMs: 5000,
+        colorBaseMs: 3750,
+        colorJitterMs: 1250
     };
 
     function updateAutoRandomizeUI() {
@@ -1229,6 +1233,13 @@ function setupControls() {
         }
     }
 
+    function clearAutoColorTimer() {
+        if (autoRandomizeState.colorTimeoutId != null) {
+            clearTimeout(autoRandomizeState.colorTimeoutId);
+            autoRandomizeState.colorTimeoutId = null;
+        }
+    }
+
     function scheduleNextAutoRandomize() {
         clearAutoRandomizeTimer();
         if (!autoRandomizeState.enabled) return;
@@ -1240,6 +1251,45 @@ function setupControls() {
             if (!autoRandomizeState.enabled) return;
             triggerAutoRandomize('timer');
         }, delay);
+    }
+
+    function scheduleNextAutoColorCycle() {
+        clearAutoColorTimer();
+        if (!autoRandomizeState.enabled) return;
+        if (!autoRandomizeState.colorCyclingEnabled) return;
+
+        const jitter = (Math.random() - 0.5) * autoRandomizeState.colorJitterMs;
+        const delay = Math.max(750, Math.round(autoRandomizeState.colorBaseMs + jitter));
+
+        autoRandomizeState.colorTimeoutId = setTimeout(() => {
+            if (!autoRandomizeState.enabled) return;
+            if (!autoRandomizeState.colorCyclingEnabled) return;
+            triggerAutoColorCycle('timer');
+        }, delay);
+    }
+
+    function triggerAutoColorCycle(reason) {
+        if (!autoRandomizeState.enabled) return;
+        if (!autoRandomizeState.colorCyclingEnabled) return;
+        if (document.hidden) return;
+        if (appState.isPaused) return;
+        if (!appState.sim || !appState.renderer) return;
+
+        // Avoid fighting with rule randomization; try again soon.
+        if (appState.randomizeInProgress) {
+            scheduleNextAutoColorCycle();
+            return;
+        }
+
+        const activeRules = appState.sim.rules;
+        const numColors = activeRules && activeRules[0] ? Object.keys(activeRules[0]).length : 2;
+        applyThemePalette(numColors);
+        updateColorPicker();
+        requestRender({ grid: true, forceFullRedraw: true });
+        processRenderQueue();
+
+        scheduleNextAutoColorCycle();
+        window.dispatchEvent(new CustomEvent('autoColorTriggered', { detail: { reason } }));
     }
 
     function triggerAutoRandomize(reason) {
@@ -1261,6 +1311,7 @@ function setupControls() {
 
         scheduleNextAutoRandomize();
         scheduleAutoRandomizeMonitor();
+        scheduleNextAutoColorCycle();
 
         window.dispatchEvent(new CustomEvent('autoRandomizeTriggered', { detail: { reason } }));
     }
@@ -1268,6 +1319,7 @@ function setupControls() {
     function pauseAutoRandomizeTimers() {
         clearAutoRandomizeTimer();
         clearAutoRandomizeMonitorTimer();
+        clearAutoColorTimer();
     }
 
     function resumeAutoRandomizeTimers() {
@@ -1276,6 +1328,7 @@ function setupControls() {
         setAutoRandomizeBaseline();
         scheduleNextAutoRandomize();
         scheduleAutoRandomizeMonitor();
+        scheduleNextAutoColorCycle();
     }
 
     function scheduleAutoRandomizeMonitor() {
@@ -1359,6 +1412,7 @@ function setupControls() {
 
     function setAutoRandomizeEnabled(enabled) {
         autoRandomizeState.enabled = Boolean(enabled);
+        if (!autoRandomizeState.enabled) autoRandomizeState.colorCyclingEnabled = true;
         updateAutoRandomizeUI();
         if (!autoRandomizeState.enabled) {
             pauseAutoRandomizeTimers();
@@ -1586,6 +1640,12 @@ function setupControls() {
                 break;
             case 'h': // Toggle Controls panel
                 if (showHideBtn) showHideBtn.click();
+                break;
+            case 'n': // Stop auto color cycling
+                if (autoRandomizeState?.enabled && autoRandomizeState?.colorCyclingEnabled) {
+                    autoRandomizeState.colorCyclingEnabled = false;
+                    clearAutoColorTimer();
+                }
                 break;
         }
     });
@@ -1916,6 +1976,7 @@ function updateHotkeyOverlay() {
         [1/2] Cycle Presets<br>
         [3] Restart Current Rule-Set<br>
         [C] Randomize Colour<br>
+        [N] Stop Auto Colour<br>
         [K] Cycle Spawn Rule<br>
         [T] Truchet Mode / Reroll<br>
         [Space] ${isPausedText}<br>
