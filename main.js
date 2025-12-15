@@ -1419,6 +1419,12 @@ function setupControls() {
             return;
         }
         resumeAutoRandomizeTimers();
+        // When enabling, immediately roll a new pattern so the user sees it "take over" right away.
+        if (!appState.randomizeInProgress) {
+            triggerAutoRandomize('enabled');
+        } else {
+            scheduleNextAutoRandomize();
+        }
     }
 
     updateAutoRandomizeUI();
