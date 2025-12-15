@@ -966,7 +966,7 @@ function setupControls() {
     }
     if (fullSpeedBtn) {
         fullSpeedBtn.addEventListener('click', () => {
-            setStepsPerSecond(90000, true, 'Full Speed');
+            setStepsPerSecond(30000, true, 'Full Speed');
         });
     }
     if (resetSpeedBtn) {
