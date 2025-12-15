@@ -15,7 +15,7 @@ import { cloneStructured } from './utils.js';
 const GRID_WIDTH = 240;
 const GRID_HEIGHT = 150;
 const SPEED_MIN = 10;
-const SPEED_MAX = 90000;
+const SPEED_MAX = 30000;
 let paletteEditSnapshot = null;
 const STRICT_SPAWN_PRESETS = [
    

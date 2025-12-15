@@ -1,15 +1,16 @@
 :root {
     --bg-color: #1a1a1a;
-    --text-color: #f0f0f0;
-    --panel-bg: #2a2a2a;
-    --accent: #00d98a;
+    --text-color: #ffffff;
+    --panel-bg: #1c1b1bf0;
+    --accent: #1eeba0;
     --accent-rgb: 0, 217, 138;
-    --ui-surface-bg: rgba(8, 8, 8, 0.15);
-    --ui-surface-bg-hover: rgba(8, 8, 8, 0.32);
+    --ui-surface-bg: rgba(8, 8, 8, 0.421);
+    --ui-surface-bg-hover: rgba(8, 8, 8, 0.46);
     --ui-surface-border: rgba(var(--accent-rgb), 0.3);
     --ui-surface-border-hover: rgba(var(--accent-rgb), 0.5);
     --ui-surface-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
+
 
 * {
     box-sizing: border-box;
