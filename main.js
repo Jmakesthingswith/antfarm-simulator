@@ -36,6 +36,7 @@ const appState = {
     renderer: null,
     isPaused: false,
     randomizeInProgress: false,
+    autoRandomizeEnabled: false,
     stepsPerSecond: 200,
     animationId: null,
     currentRules: null,
@@ -485,8 +486,12 @@ function init() {
                 opt.textContent = optVal.charAt(0).toUpperCase() + optVal.slice(1);
                 spawnSelect.appendChild(opt);
             }
+
+            
         });
-    }
+    }   
+    
+     
 
 
     // Start Loop
@@ -499,7 +504,6 @@ function init() {
     processRenderQueue();
     setHotkeyOverlayOpen(false);
 }
-
 function populatePresets() {
     // Save current selection if possible
     const currentSelection = rulePreset.value;
@@ -1152,6 +1156,7 @@ function setupControls() {
         randomizeStrictSpawnForPresetLoad();
         appState.randomizeInProgress = true;
         updateSpawnOverlay();
+        
 
         performWithHistory('Randomize Rules', () => {
             try {
@@ -1260,6 +1265,9 @@ function setupControls() {
             } finally {
                 appState.randomizeInProgress = false;
                 setAutoRandomizeBaseline();
+                if (autoRandomizeState?.enabled) {
+                    scheduleNextAutoColorCycle();
+                }
                 window.updateStepOverlay();
             }
         });
@@ -1357,9 +1365,14 @@ function setupControls() {
         requestRender({ grid: true, forceFullRedraw: true });
         processRenderQueue();
 
-          
+         if (reason === 'timer') {
         scheduleNextAutoColorCycle();
-        window.dispatchEvent(new CustomEvent('autoColorTriggered', { detail: { reason } }));
+    }
+
+
+        window.dispatchEvent(
+            new CustomEvent('autoColorTriggered', { detail: { reason } })
+    );
     }
 
     function triggerAutoRandomize(reason) {
@@ -1482,8 +1495,10 @@ function setupControls() {
 
     function setAutoRandomizeEnabled(enabled) {
         autoRandomizeState.enabled = Boolean(enabled);
+        appState.autoRandomizeEnabled = autoRandomizeState.enabled;
         if (!autoRandomizeState.enabled) autoRandomizeState.colorCyclingEnabled = true;
         updateAutoRandomizeUI();
+        updateHotkeyOverlay();
         if (!autoRandomizeState.enabled) {
             pauseAutoRandomizeTimers();
             return;
@@ -1621,8 +1636,10 @@ function setupControls() {
 
     // Keybindings
     window.addEventListener('keydown', (e) => {
-        // Ignore if typing in an input
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+        const key = e.key.toLowerCase();
+        const targetTag = e.target?.tagName;
+        const typingTarget = targetTag === 'INPUT' || targetTag === 'SELECT' || targetTag === 'TEXTAREA';
+        if (typingTarget && key !== 'n') return;
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
             e.preventDefault();
             if (e.shiftKey) {
@@ -1633,7 +1650,7 @@ function setupControls() {
             return;
         }
 
-        switch (e.key.toLowerCase()) {
+        switch (key) {
             case 'r':
                 randomizeBtn.click();
                 break;
@@ -1717,10 +1734,10 @@ function setupControls() {
             case 'h': // Toggle Controls panel
                 if (showHideBtn) showHideBtn.click();
                 break;
-            case 'n': // Stop auto color cycling
-                if (autoRandomizeState?.enabled && autoRandomizeState?.colorCyclingEnabled) {
-                    autoRandomizeState.colorCyclingEnabled = false;
-                    clearAutoColorTimer();
+            case 'n': // Toggle automation
+                if (autoRandomizeState) {
+                    setAutoRandomizeEnabled(!autoRandomizeState.enabled);
+                    updateHotkeyOverlay();
                 }
                 break;
         }
@@ -2046,13 +2063,14 @@ function updateHotkeyOverlay() {
     const isPausedText = appState.isPaused ? '⏵ Resume' : '⏸ Pause';
     const is3DText = appState.parallaxMode === 'mouse' ? '🌀 Mouse Parallax: ON' : '⬜ Mouse Parallax: OFF';
     const gridText = appState.renderer.showGrid ? '⊞ Grid: ON' : '⊞ Grid: OFF';
+    const autoText = appState.autoRandomizeEnabled ? '⏹ Stop Auto' : '▶ Start Auto';
     overlay.innerHTML = `
         <strong style="color: var(--accent);">Quick Keys</strong><br>
         [R] Randomize <br>
         [1/2] Cycle Presets<br>
         [3] Restart Current Rule-Set<br>
         [C] Randomize Colour<br>
-        [N] Stop Auto Colour<br>
+        [N] ${autoText}<br>
         [K] Cycle Spawn Rule<br>
         [T] Truchet Mode / Reroll<br>
         [Space] ${isPausedText}<br>

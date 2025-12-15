@@ -4,6 +4,11 @@
     --panel-bg: #2a2a2a;
     --accent: #00d98a;
     --accent-rgb: 0, 217, 138;
+    --ui-surface-bg: rgba(8, 8, 8, 0.15);
+    --ui-surface-bg-hover: rgba(8, 8, 8, 0.32);
+    --ui-surface-border: rgba(var(--accent-rgb), 0.3);
+    --ui-surface-border-hover: rgba(var(--accent-rgb), 0.5);
+    --ui-surface-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -52,13 +57,13 @@ canvas {
 }
 
 .glass-overlay {
-    background: rgba(20, 20, 20, 0.85);
+    background: var(--ui-surface-bg);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(var(--accent-rgb), 0.3);
+    border: 1px solid var(--ui-surface-border);
     border-radius: 8px;
     padding: 12px 16px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--ui-surface-shadow);
 }
 
 #topStatusBar {
@@ -93,6 +98,8 @@ canvas {
     bottom: 10px;
     left: 10px;
     z-index: 100;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
 }
 
 .glass-overlay {
@@ -113,8 +120,8 @@ canvas {
 
 /* Hover effect (even though pointer-events: none, this works on parent hover) */
 #hotkeyOverlay:hover {
-    background: rgba(20, 20, 20, 0.95);
-    border-color: rgba(var(--accent-rgb), 0.5);
+    background: var(--ui-surface-bg-hover);
+    border-color: var(--ui-surface-border-hover);
 }
 
 /* Key highlights */
@@ -122,6 +129,8 @@ canvas {
     color: var(--accent);
     text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
     font-size: 1.1em;
+    transition: transform 0.35s ease, background 0.0s ease, border-color 0.2s ease, opacity 0.0s ease;
+    transform: translateX(0);
 }
 
 /* Bracket styling for keys */
@@ -176,6 +185,8 @@ canvas {
     flex-direction: column;
     gap: 4px;
     max-width: 280px;
+    transition: transform 0.35s ease, background 0.0s ease, border-color 0.2s ease, opacity 0.0s ease;
+    transform: translateX(0);
 }
 
 #stepOverlay {
@@ -254,14 +265,14 @@ canvas {
     position: absolute;
     top: 10px;
     right: 10px;
-    background: rgba(20, 20, 20, 0.85);
+    background: var(--ui-surface-bg);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(var(--accent-rgb), 0.3);
+    border: 1px solid var(--ui-surface-border);
     padding: 0;
-    /* REMOVE all internal padding from #controls */
     border-radius: 8px;
-    color: white;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
     font-family: 'Courier New', monospace;
     display: flex;
     flex-direction: column;
@@ -292,62 +303,46 @@ canvas {
     justify-content: space-between;
     align-items: center;
     gap: 15px;
-    /* REMOVE the margin and border-bottom that was separating the header */
     padding-bottom: 0;
-    /* Add padding to the header itself to define the boundary */
     padding: 10px 10px 5px 10px;
-    /* Top, Right, Bottom (less), Left */
 }
 
 .panel-title {
     font-weight: bold;
     font-size: 1.2em;
-    /* Matched previous inline style */
     margin: 0;
-    /* Ensure the title is slightly separated from the button */
     color: var(--accent);
     text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
 }
 
 
 
-/* The expanded state button styles */
 #controls:not(.minimized) #showHideBtn {
-    /* Apply the button design parity */
     pointer-events: auto;
     text-decoration: none;
     background-color: #333;
     color: #ccc;
-    /* Ensure text color is right */
     padding: 5px 10px;
     border-radius: 4px;
     border: 1px solid #555;
-    /* Override width 100% from .secondary-btn */
     width: auto;
     margin-top: 0;
     cursor: pointer;
     font-size: 0.9em;
 }
 
-/* --- BUTTON STYLE WHEN CONTROLS ARE OPEN (Show/Hide Button) --- */
 #controls:not(.minimized) #showHideBtn.hud-toggle-btn {
-    /* Base Glass Button Appearance */
     pointer-events: auto;
     cursor: pointer;
 
-    /* Inherit/Apply Glassmorphism */
     background-color: rgba(8, 8, 8, 0.15);
-    /* Semi-transparent */
     backdrop-filter: blur(8px);
     border: 1px solid var(--accent);
     border-radius: 12px;
-
-    /* Sizing and Text */
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 5px 10px;
-    /* Generous padding for a button */
     font-size: 11px;
     font-weight: bold;
     border-radius: 7px;
@@ -367,10 +362,6 @@ canvas {
     transform: translateY(1px);
 }
 
-/* Minimized State */
-/* Minimized State */
-/* --- BUTTON STYLE WHEN CONTROLS ARE MINIMIZED (Show Button) --- */
-
 #controls.minimized #showHideBtn.hud-toggle-btn {
     pointer-events: auto;
     cursor: pointer;
@@ -380,15 +371,14 @@ canvas {
     min-width: auto;
     width: auto;
     padding: 6px 10px;
-    height: auto;
-    
-background: rgba(20, 20, 20, 0.85);
-backdrop-filter: blur(10px);
-border: 1px solid rgba(var(--accent-rgb), 0.3);
-border-radius: 8px;
-color: var(--accent);
-text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
-transition: all 0.2s ease;
+    height: auto; 
+    background: rgba(20, 20, 20, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
+    border-radius: 8px;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    transition: all 0.2s ease;
 }
 
 #controls.minimized #showHideBtn.hud-toggle-btn:hover {
@@ -432,7 +422,8 @@ transition: all 0.2s ease;
     display: block;
     margin-bottom: 5px;
     font-size: 0.9em;
-    color: #ccc;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
 }
 
 /* Buttons & Inputs */
@@ -447,6 +438,7 @@ input[type="number"] {
     font-size: 0.9em;
     min-height: 32px;
     padding: 5px 10px;
+    
 }
 
 button:hover {
@@ -455,6 +447,23 @@ button:hover {
 
 button:active {
     background-color: #777;
+}
+
+/* Controls panel: match HUD surface styling */
+#controls button,
+#controls select,
+#controls input[type="number"] {
+    background: var(--ui-surface-bg);
+    border: 1px solid var(--ui-surface-border);
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+}
+
+#controls button:hover,
+#controls select:hover,
+#controls input[type="number"]:hover {
+    background: var(--ui-surface-bg-hover);
+    border-color: var(--ui-surface-border-hover);
 }
 
 select {
@@ -479,6 +488,8 @@ select {
 #controls select {
     min-height: 32px;
     font-size: 0.9em;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
 }
 
 /* Slider Container */
@@ -531,17 +542,16 @@ details.config-details summary:hover {
 #controls textarea {
     width: 100%;
     background-color: #222;
-    color: #ddd;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
     border: 1px solid #555;
     border-radius: 3px;
     font-family: monospace;
     font-size: 0.8em;
     resize: vertical;
     box-sizing: border-box;
-    /* Ensure padding doesn't overflow width */
 }
 
-/* New UI Elements */
 
 
 .accent-btn {
@@ -549,7 +559,7 @@ details.config-details summary:hover {
     border: none;
     color: white;
     font-weight: bold;
-    margin-top: 5px;
+    margin-top: 4;
     width: 100%;
 }
 
@@ -678,20 +688,18 @@ details.config-details summary:hover {
     color: var(--accent);
     text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
 
-    background-color: rgba(8, 8, 8, 0.15);
-    backdrop-filter: blur(8px);
-    border: 1px solid var(--accent);
+    background-color: var(--ui-surface-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--ui-surface-border);
     border-radius: 12px;
     pointer-events: auto;
     cursor: pointer;
     transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-
-
 .hud-toggle-btn:hover {
-    background: rgba(7, 6, 6, 0.418);
-    border-color: rgba(var(--accent-rgb), 0.5);
+    background: var(--ui-surface-bg-hover);
+    border-color: var(--ui-surface-border-hover);
     box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.6);
 }
 
@@ -728,6 +736,6 @@ details.config-details summary:hover {
 }
 
 #controls.minimized #showHideBtn.hud-toggle-btn {
-    background: rgba(20, 20, 20, 0.85);
-    border: 1px solid rgba(var(--accent-rgb), 0.3);
+    background: var(--ui-surface-bg);
+    border: 1px solid var(--ui-surface-border);
 }
