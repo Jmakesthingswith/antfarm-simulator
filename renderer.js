@@ -49,6 +49,20 @@ class GridRenderer {
     // Palette colors are stored internally as canonical rgba(...) strings.
     // Alpha is preserved internally but is not editable via the color picker.
 
+    parseColorToRgba(color) {
+        return this._parseColorToRgba(color);
+    }
+
+    rgbaToCss(rgba) {
+        return this._rgbaToCss(rgba);
+    }
+
+    setTransientPalette(colors) {
+        if (!Array.isArray(colors) || colors.length === 0) return;
+        this.currentPalette = colors;
+        this._needsFullRedraw = true;
+    }
+
 
     _parseColorToRgba(color) {
         const ctx = this._colorParseCtx;

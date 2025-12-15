@@ -555,14 +555,83 @@ function applyThemePalette(desiredColorCount) {
     const name = pickThemePaletteName(desiredColorCount);
     const desired = Math.min(5, Math.max(2, Number.isFinite(desiredColorCount) ? desiredColorCount : 5));
 
-    if (name) {
-        appState.renderer.setPalette(name);
+    if (!appState.renderer) return;
+
+    if (name && appState.renderer.palettes && appState.renderer.palettes[name]) {
+        transitionToPalette(appState.renderer.palettes[name], 900);
         if (themeSelect) themeSelect.value = name;
         return;
     }
 
-    appState.renderer.setCustomPalette(appState.renderer.generateRandomPalette(desired));
+    const generated = appState.renderer.generateRandomPalette(desired);
+    transitionToPalette(generated, 900);
     if (themeSelect) themeSelect.value = 'Custom';
+}
+
+let _paletteTransitionRaf = null;
+
+function cancelPaletteTransition() {
+    if (_paletteTransitionRaf != null) {
+        cancelAnimationFrame(_paletteTransitionRaf);
+        _paletteTransitionRaf = null;
+    }
+}
+
+function transitionToPalette(targetColors, durationMs = 900) {
+    if (!appState.renderer) return;
+    if (!Array.isArray(targetColors) || targetColors.length === 0) return;
+
+    cancelPaletteTransition();
+
+    const renderer = appState.renderer;
+    const from = renderer.currentPalette ? [...renderer.currentPalette] : [];
+    const to = renderer.normalizePalette(targetColors);
+
+    if (!from.length || from.length !== to.length) {
+        renderer.setCustomPalette(to);
+        updateColorPicker();
+        requestRender({ grid: true, forceFullRedraw: true });
+        processRenderQueue();
+        return;
+    }
+
+    const fromRgba = from.map((c) => renderer.parseColorToRgba(c));
+    const toRgba = to.map((c) => renderer.parseColorToRgba(c));
+    const start = performance.now();
+    const dur = Math.max(50, Number(durationMs) || 550);
+
+    const ease = (t) => t * t * (3 - 2 * t);
+
+    const step = (now) => {
+        const rawT = (now - start) / dur;
+        const t = rawT >= 1 ? 1 : ease(Math.max(0, Math.min(1, rawT)));
+
+        const mixed = new Array(fromRgba.length);
+        for (let i = 0; i < fromRgba.length; i++) {
+            const a = fromRgba[i];
+            const b = toRgba[i];
+            const r = Math.round(a.r + (b.r - a.r) * t);
+            const g = Math.round(a.g + (b.g - a.g) * t);
+            const bl = Math.round(a.b + (b.b - a.b) * t);
+            const alpha = Math.round(a.a + (b.a - a.a) * t);
+            mixed[i] = renderer.rgbaToCss({ r, g, b: bl, a: alpha });
+        }
+
+        renderer.setTransientPalette(mixed);
+        requestRender({ grid: true, forceFullRedraw: true });
+        processRenderQueue();
+
+        if (rawT >= 1) {
+            renderer.setCustomPalette(to);
+            updateColorPicker();
+            _paletteTransitionRaf = null;
+            return;
+        }
+
+        _paletteTransitionRaf = requestAnimationFrame(step);
+    };
+
+    _paletteTransitionRaf = requestAnimationFrame(step);
 }
 
 
@@ -1244,8 +1313,8 @@ function setupControls() {
         clearAutoRandomizeTimer();
         if (!autoRandomizeState.enabled) return;
 
-        const jitter = (Math.random() - 0.5) * autoRandomizeState.jitterMs;
-        const delay = Math.max(1000, Math.round(autoRandomizeState.baseMs + jitter));
+        const jitter = (Math.random() - 0.2) * autoRandomizeState.jitterMs;
+        const delay = Math.max(4000, Math.round(autoRandomizeState.baseMs + jitter));
 
         autoRandomizeState.timeoutId = setTimeout(() => {
             if (!autoRandomizeState.enabled) return;
@@ -1258,8 +1327,8 @@ function setupControls() {
         if (!autoRandomizeState.enabled) return;
         if (!autoRandomizeState.colorCyclingEnabled) return;
 
-        const jitter = (Math.random() - 0.5) * autoRandomizeState.colorJitterMs;
-        const delay = Math.max(750, Math.round(autoRandomizeState.colorBaseMs + jitter));
+        const jitter = (Math.random() - 0.3) * autoRandomizeState.colorJitterMs;
+        const delay = Math.max(5000, Math.round(autoRandomizeState.colorBaseMs + jitter));
 
         autoRandomizeState.colorTimeoutId = setTimeout(() => {
             if (!autoRandomizeState.enabled) return;
@@ -1288,6 +1357,7 @@ function setupControls() {
         requestRender({ grid: true, forceFullRedraw: true });
         processRenderQueue();
 
+          
         scheduleNextAutoColorCycle();
         window.dispatchEvent(new CustomEvent('autoColorTriggered', { detail: { reason } }));
     }
