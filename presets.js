@@ -33,6 +33,10 @@ function ecaRuleToBitString(ruleNumber) {
     return (ruleNumber >>> 0).toString(2).padStart(8, '0');
 }
 
+function ecaBitStringToRuleNumber(bits) {
+    return parseInt(bits, 2) >>> 0;
+}
+
 const ECA_MIRROR_MAP = [0, 4, 2, 6, 1, 5, 3, 7];
 
 function invertBits(bits) {
@@ -67,8 +71,6 @@ function applyEcaTransforms(bits, transforms) {
 }
 
 function classHintFromEcaBits(bits, ecaRule) {
-    if (ecaRule === 184) return 2;
-
     let ones = 0;
     for (let i = 0; i < 8; i++) ones += bits[i] === '1' ? 1 : 0;
     if (ones === 0 || ones === 8) return 1;
@@ -99,6 +101,41 @@ const PERIODIC2_BITS = new Set([
 
 const KNOWN_CLASS_4_ECA = new Set([30, 54, 110]);
 const KNOWN_CLASS_3_ECA = new Set([22, 45, 57, 73, 90, 105, 126, 150]);
+
+// Canonicalization for Wolfram Class Hint uses the common ECA equivalence group:
+// reflection (L/R) and black/white conjugation (invert inputs+outputs). This yields 88 equivalence classes.
+const ECA_EQUIVALENCE_TRANSFORMS = [
+    [],
+    ['mirror_lr'],
+    ['invert_in_out'],
+    ['mirror_lr', 'invert_in_out']
+];
+
+function computeEcaOrbit(ruleNumber) {
+    const baseBits = ecaRuleToBitString(ruleNumber);
+    const orbit = new Set();
+    for (const transforms of ECA_EQUIVALENCE_TRANSFORMS) {
+        const bits = applyEcaTransforms(baseBits, transforms);
+        orbit.add(ecaBitStringToRuleNumber(bits));
+    }
+    return [...orbit].sort((a, b) => a - b);
+}
+
+function canonicalEcaRepresentative(ruleNumber) {
+    const orbit = computeEcaOrbit(ruleNumber);
+    return orbit.length ? orbit[0] : (ruleNumber >>> 0);
+}
+
+function classHintForEcaOrbit(bits, orbitRules) {
+    if (orbitRules.includes(184)) return 2;
+    for (const r of orbitRules) {
+        if (KNOWN_CLASS_4_ECA.has(r)) return 4;
+    }
+    for (const r of orbitRules) {
+        if (KNOWN_CLASS_3_ECA.has(r)) return 3;
+    }
+    return classHintFromEcaBits(bits, orbitRules[0] ?? 0);
+}
 
 function mapBitsToTurmiteRules(bits, mapping) {
     const rules = { 0: {}, 1: {} };
@@ -335,57 +372,42 @@ const PRESETS = buildVisiblePresets();
 function buildMutationSeedPool({ targetSize = 4096 } = {}) {
     const entries = [];
 
-    const transformCombos = [
-        [],
-        ['mirror_lr'],
-        ['invert_out'],
-        ['mirror_lr', 'invert_out'],
-        ['invert_in_out'],
-        ['mirror_lr', 'invert_in_out'],
-        ['invert_in_out', 'invert_out'],
-        ['mirror_lr', 'invert_in_out', 'invert_out']
-    ];
-
     const mappings = ['eca8bit_to_turmite_v1', 'eca8bit_to_turmite_v2', 'eca_stream_to_turmite_2s3c_v1'];
+    const hintMapping = mappings[0];
 
+    const representatives = new Set();
     for (let rule = 0; rule <= 255; rule++) {
-        const baseBits = ecaRuleToBitString(rule);
+        representatives.add(canonicalEcaRepresentative(rule));
+    }
+    const representativeRules = [...representatives].sort((a, b) => a - b);
 
-        const uniqueVariants = [];
-        const seenBits = new Set();
-        for (const transforms of transformCombos) {
-            const bits = applyEcaTransforms(baseBits, transforms);
-            if (seenBits.has(bits)) continue;
-            seenBits.add(bits);
-            uniqueVariants.push({ bits, transforms });
-        }
+    for (const rule of representativeRules) {
+        const bits = ecaRuleToBitString(rule);
+        const orbitRules = computeEcaOrbit(rule);
+        const classHint = classHintForEcaOrbit(bits, orbitRules);
+        const family = orbitRules.includes(184) ? 'traffic' : 'ECA';
 
-        for (const { bits, transforms } of uniqueVariants) {
-            const classHint = classHintFromEcaBits(bits, rule);
-            const family = rule === 184 ? 'traffic' : 'ECA';
-            const transformsKey = transforms.length ? transforms.join('+') : 'base';
+        for (const mapping of mappings) {
+            const rules = mapBitsToTurmiteRules(bits, mapping);
+            const id = `eca-${String(rule).padStart(3, '0')}__canonical__${mapping}`;
+            const label = `ECA ${rule} → ${mapping}`;
+            const mappingFamily = mapping.includes('3c') ? 'multicolor' : family;
 
-            for (const mapping of mappings) {
-                const rules = mapBitsToTurmiteRules(bits, mapping);
-                const id = `eca-${String(rule).padStart(3, '0')}__${transformsKey}__${mapping}`;
-                const label = `ECA ${rule} → ${mapping} (${transformsKey})`;
-                const mappingFamily = mapping.includes('3c') ? 'multicolor' : family;
-
-                entries.push({
-                    id,
-                    label,
-                    meta: {
-                        family: mappingFamily,
-                        ecaRule: rule,
-                        radius: 1,
-                        alphabet: [0, 1],
-                        transforms: transforms.length ? [...transforms] : ['base'],
-                        wolframClassHint: classHint,
-                        mapping
-                    },
-                    rules
-                });
-            }
+            entries.push({
+                id,
+                label,
+                meta: {
+                    family: mappingFamily,
+                    ecaRule: rule,
+                    canonicalEcaRule: rule,
+                    radius: 1,
+                    alphabet: [0, 1],
+                    transforms: ['canonical'],
+                    ...(mapping === hintMapping ? { wolframClassHint: classHint } : {}),
+                    mapping
+                },
+                rules
+            });
         }
     }
 
@@ -410,8 +432,12 @@ function buildMutationSeedPool({ targetSize = 4096 } = {}) {
                 id: `${base.id}__derived_${String(i).padStart(4, '0')}`,
                 label: `${base.label} (derived)`,
                 meta: {
-                    ...base.meta,
                     family: 'derived',
+                    ecaRule: base.meta.ecaRule,
+                    canonicalEcaRule: base.meta.canonicalEcaRule,
+                    radius: base.meta.radius,
+                    alphabet: base.meta.alphabet,
+                    transforms: ['derived'],
                     mapping: `${base.meta.mapping}__derived`
                 },
                 rules: derivedRules
