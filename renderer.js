@@ -5,7 +5,7 @@
  */
 
 class GridRenderer {
-    
+
     constructor(canvas) {
         this.MIN_DELTA_E = 25; // Minimum Delta E for color distinction
         this.MIN_BACKGROUND_DELTA_E = 38;
@@ -33,48 +33,10 @@ class GridRenderer {
         this._lastOrientationsRef = null;
         this._needsFullRedraw = true;
 
-        // Color Palettes (Max 5 colors per theme)
-        this.palettes = {
-            "Classic": [
-                '#000000', '#FFFFFF'
-            ],
-            "Spectral": [
-                '#000000', '#FF0000', '#FFFF00', '#00FF00', '#0000FF'
-            ],
-            "Neon": [
-                '#000000', '#00f3ff', '#ff00aa', '#bc13fe', '#00ff9f'
-            ],
-            "Terminal": [
-                '#000000', '#00FF00', '#00CC00', '#009900', '#33FF33'
-            ],
-            "Glitch": [
-                '#000000', '#00FFFF', '#FF00FF', '#FFFF00', '#FFFFFF'
-            ],
-            "Pastel Dream": [
-                '#000000', '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf'
-            ],
-            "Oceanic": [
-                '#000000', '#0074D9', '#7FDBFF', '#39CCCC', '#3D9970'
-            ],
-            "Magma": [
-                '#000000', '#ff0000', '#ff4d00', '#ff9900', '#ffcc00'
-            ],
-            "Cyberpunk": [
-                '#000000', '#ff0055', '#00ffcc', '#ffff00', '#ff00ff'
-            ],
-            "Deep Space": [
-                '#000000', '#4b0082', '#8a2be2', '#9370db', '#e6e6fa'
-            ],
-            "Matrix": [
-                '#000000', '#003300', '#006600', '#009900', '#00cc00'
-            ]
-        };
-
-        for (const name of Object.keys(this.palettes)) {
-            this.palettes[name] = this.normalizePalette(this.palettes[name]);
-        }
-
-        this.currentPalette = this.palettes["Classic"];
+        // Palette container (built-ins intentionally removed; main.js drives palette generation/selection).
+        this.palettes = {};
+        this.currentPalette = this.normalizePalette(['#000000ff', '#32ff0eff']);
+        this.palettes.Custom = this.currentPalette;
         this.renderMode = 'default';
         this.use3D = false; // Default to 3D enabled
 
@@ -109,37 +71,47 @@ class GridRenderer {
         return `#${to2(r)}${to2(g)}${to2(b)}`;
     }
 
-    _srgbToLinear(channel255) {
-        const c = channel255 / 255;
-        return c <= 0.04045 ? (c / 12.92) : Math.pow((c + 0.055) / 1.055, 2.4);
+    srgbChannelToLinear(c) {
+        // c is 0.0–1.0
+        if (c <= 0.04045) {
+            return c / 12.92;
+        }
+        return Math.pow((c + 0.055) / 1.055, 2.4);
     }
 
     _rgbToLab(r, g, b) {
-        // sRGB (D65) -> CIELAB
-        const R = this._srgbToLinear(r);
-        const G = this._srgbToLinear(g);
-        const B = this._srgbToLinear(b);
+    // r, g, b are 0–255 (from Canvas / CSS parsing)
 
-        // Linear RGB -> XYZ (D65)
-        const X = (R * 0.4124564) + (G * 0.3575761) + (B * 0.1804375);
-        const Y = (R * 0.2126729) + (G * 0.7151522) + (B * 0.0721750);
-        const Z = (R * 0.0193339) + (G * 0.1191920) + (B * 0.9503041);
+    const R = this.srgbChannelToLinear(r / 255);
+    const G = this.srgbChannelToLinear(g / 255);
+    const B = this.srgbChannelToLinear(b / 255);
 
-        // Normalize by D65 reference white
-        const Xn = 0.95047;
-        const Yn = 1.0;
-        const Zn = 1.08883;
+    // Linear RGB → XYZ (D65)
+    const X = (R * 0.4124564) + (G * 0.3575761) + (B * 0.1804375);
+    const Y = (R * 0.2126729) + (G * 0.7151522) + (B * 0.0721750);
+    const Z = (R * 0.0193339) + (G * 0.1191920) + (B * 0.9503041);
 
-        const f = (t) => (t > 0.008856 ? Math.cbrt(t) : ((7.787 * t) + (16 / 116)));
-        const fx = f(X / Xn);
-        const fy = f(Y / Yn);
-        const fz = f(Z / Zn);
+    // D65 reference white
+    const Xn = 0.95047;
+    const Yn = 1.0;
+    const Zn = 1.08883;
 
-        const L = (116 * fy) - 16;
-        const a = 500 * (fx - fy);
-        const b2 = 200 * (fy - fz);
-        return { L, a, b: b2 };
-    }
+    const f = (t) =>
+        t > 0.008856
+            ? Math.cbrt(t)
+            : (7.787 * t) + (16 / 116);
+
+    const fx = f(X / Xn);
+    const fy = f(Y / Yn);
+    const fz = f(Z / Zn);
+
+    return {
+        L: (116 * fy) - 16,
+        a: 500 * (fx - fy),
+        b: 200 * (fy - fz)
+    };
+}
+
 
     _convertToLab(color) {
         const { r, g, b } = this._parseColorToRgba(color);
@@ -201,10 +173,10 @@ class GridRenderer {
         this._needsFullRedraw = true;
     }
 
-
     // NOTE:
     // Palette generation uses HSL for proposals and CIELAB (ΔE) for distance checks.
     // Avoid introducing additional brightness models without updating the acceptance criteria.
+    // Introducing a rule to reject washed out colours to begin adding diff sources of lumin
 
     generateRandomPalette(count) {
         const palette = [];
@@ -213,6 +185,17 @@ class GridRenderer {
         const strategy = strategies[Math.floor(Math.random() * strategies.length)];
         const usedColors = new Set();
         const usedLabByColor = new Map();
+
+         // --- ROLE ASSIGNMENT ---
+        const roles = [];
+        roles.push('background');
+
+        const accentCount = Math.max(1, Math.floor((count - 1) * 0.32));
+        const fieldCount = (count - 1) - accentCount;
+
+        for (let i = 0; i < fieldCount; i++) roles.push('field');
+        for (let i = 0; i < accentCount; i++) roles.push('accent');
+
 
         const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
         const jitter = (amp) => (Math.random() * amp * 2) - amp;
@@ -235,7 +218,7 @@ class GridRenderer {
             while (attempts < 30 && !chosenColor) {
                 attempts += 1;
 
-                
+
                 let sat = clamp(78 + jitter(5), 68, 88);
                 let light = clamp(50 + jitter(4), 44, 62);
 
@@ -273,36 +256,69 @@ class GridRenderer {
 
                 // Hue-specific tuning to keep perceived brightness more consistent.
                 if (hue >= 35 && hue <= 85) { // yellows can blow out
-                    sat = clamp(sat,     55, 92);
+                    sat = clamp(sat, 55, 92);
                     light = clamp(light, 38, 62);
                 } else if (hue >= 90 && hue <= 120) { // yellow-green (warmer)
-                    sat = clamp(sat,     55, 92);
+                    sat = clamp(sat, 55, 92);
                     light = clamp(light, 38, 60);
                 } else if (hue > 120 && hue <= 160) { // cool green / mint
-                    sat = clamp(sat,     50, 78);
+                    sat = clamp(sat, 50, 78);
                     light = clamp(light, 38, 52);
                 } else if (hue >= 200 && hue <= 260) { // blues are often too dark at the same L
                     light = clamp(light + 3, 44, 64);
                 } else if (hue >= 260 && hue <= 320) { // purples can go muddy
                     light = clamp(light + 4, 38, 62);
                 }
-
                 if (hue >= 25 && hue <= 55) { // orange
-                    sat = clamp(sat,     72, 92);
+                    sat = clamp(sat, 72, 92);
                     light = clamp(light, 52, 70);
                 }
+
+                
+                const role = roles[i];
+
+                // Role Based Constraints
+                if (role === 'field') {
+                    sat   = clamp(sat, 45, 75);
+                    light = clamp(light, 38, 54);
+                }
+                
+                if (role === 'accent') {
+                    sat  = clamp(sat, 65, 95);
+                    light = clamp(light, 62, 74);
+                }
+
+                if (light > 68 && sat < 45) continue;
+
 
                 let candidate = `hsl(${Math.round(hue)}, ${Math.round(sat)}%, ${Math.round(light)}%)`;
                 let normalizedCandidate = this.normalizeColor(candidate);
                 let candidateLab = this._convertToLab(normalizedCandidate);
+            
+                const deltaToBg = this.calculateDeltaE(candidateLab, backgroundLab);
+                if (deltaToBg < this.MIN_BACKGROUND_DELTA_E) continue;
 
-
-                // Enforce perceptual separation from background and between palette entries.
-                if (this.calculateDeltaE(candidateLab, backgroundLab) < 38) continue;
                 // No duplicates
                 if (usedColors.has(normalizedCandidate)) continue;
-                // ΔE separation from existing palette
-                if (this.isTooSimilar(normalizedCandidate, usedColors, usedLabByColor, candidateLab)) continue;
+
+
+                // Role-aware similarity
+                for (const used of usedColors) {
+                    const usedLab = usedLabByColor.get(used);
+                    const dE = this.calculateDeltaE(candidateLab, usedLab);
+
+                    if (role === 'field' && dE < 20) continue attemptLoop;
+                    if (role === 'accent' && dE < 18) continue attemptLoop;
+                }
+
+                if (role === 'accent') {
+                    for (const used of usedColors) {
+                        const usedLab = usedLabByColor.get(used);
+                        if (Math.abs(candidateLab.L - usedLab.L) < 12) {
+                            continue attemptLoop;
+                        }
+                    }
+                }
 
                 // Extra hierarchy for cool greens to avoid muddy palettes - they are more sensitive to luminance clashes. Needs adjustment.
                 const isCoolGreen = hue > 120 && hue <= 160;
@@ -315,19 +331,7 @@ class GridRenderer {
                     }
                 }
 
-                let anchorSat = null;
-                let anchorLight = null;
-
-                // Palette harmony anchoring to avoid drift
-                if (i === 1) {
-                    anchorSat = sat;
-                    anchorLight = light;
-                } else if (anchorSat !== null) {
-                    sat = sat * 0.7 + anchorSat * 0.3;
-                    light = light * 0.7 + anchorLight * 0.3;
-                    sat   = clamp(sat,   50, 95);
-                    light = clamp(light, 38, 72);
-                }
+                
 
                 chosenColor = normalizedCandidate;
                 chosenLab = candidateLab;
@@ -343,10 +347,14 @@ class GridRenderer {
             usedLabByColor.set(chosenColor, chosenLab);
             usedColors.add(chosenColor);
             palette.push(chosenColor);
+
+        
+        
         }
 
         return palette;
     }
+    
 
     isTooSimilar(candidateColor, usedColors, usedLabByColor = null, candidateLab = null) {
         const minDeltaE = this.MIN_DELTA_E;
@@ -386,8 +394,8 @@ class GridRenderer {
             // fallback: force higher contrast
             active = this.normalizeColor(`hsl(0, 0%, 94%)`);
         }
-       
-       
+
+
         return [background, active];
     }
 
@@ -514,10 +522,10 @@ class GridRenderer {
 
         ctx.fillStyle = primaryColor;
         ctx.globalAlpha = 1;
-        
+
         ctx.beginPath();
         // Draw two triangles to form the Truchet pattern
-        if (orientation % 2 === 0) { 
+        if (orientation % 2 === 0) {
             ctx.moveTo(px, py + size);
             ctx.lineTo(px + size, py);
             ctx.lineTo(px, py);

@@ -13,15 +13,18 @@
         <div id="canvas-container">
             <canvas id="gridCanvas"></canvas>
 
-            <div id="statsOverlay" class="hud-panel glass-overlay">
+            <div id="topStatusBar" class="hud-panel glass-overlay">
                 <div id="rulesetDisplay">Langton's Ant</div>
                 <div id="spawnOverlay"></div>
+            </div>
+
+            <div id="statsOverlay" class="hud-panel glass-overlay">
                 <div class="stat-line">
-                    <span style="font-weight: bold;">Performance:</span>
+                    <span style="font-weight: bold;">Performance -</span>
                     <span id="speedOverlay">Loading...</span>
                 </div>
                 <div class="stat-line">
-                    <span style="font-weight: bold;">Steps:</span>
+                    <span style="font-weight: bold;">Steps -</span>
                     <span id="stepOverlayHint" class="step-overlay-hint"></span>
                     <span id="stepOverlay" class="step-overlay-value"></span>
                 </div>
@@ -32,7 +35,9 @@
         <div id="controls" class="minimized">
             <div class="panel-header">
                 <h2 class="panel-title" style="margin: 0;">Controls</h2>
-                <button id="showHideBtn" class="secondary-btn" style="padding: 2px 8px; font-size: 0.8em;">Show</button>
+                <div class="button-group">
+                    <button id="showHideBtn" class="glass-overlay hud-toggle-btn">Show</button>
+                </div>
             </div>
             <div id="controls-content">
                 <div class="control-group">
@@ -126,7 +131,7 @@
             </div>
         </div>
     </div>
-    <div id="hotkeyHintOverlay" class="hud-panel glass-overlay" title="Show Quick Keys">⌘</div>
+    <div id="hotkeyHintOverlay" class="hud-panel glass-overlay hud-toggle-btn" title="Show Quick Keys">⌘</div>
     <script type="module" src="main.js"></script>
 </body>
 

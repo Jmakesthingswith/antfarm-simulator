@@ -264,7 +264,7 @@ function buildVisiblePresets() {
     };
 
     // Keep Langton's Ant as-is (special-cased in UI).
-    return {
+    const visible = {
         "Langton's Ant": {
             description: "The classic chaotic agent. 2 Colors, RL.",
             rules: {
@@ -326,6 +326,8 @@ function buildVisiblePresets() {
             description: "Rule 5 mapped to a 2-state/2-color turmite."
         })
     };
+
+    return visible;
 }
 
 const PRESETS = buildVisiblePresets();

@@ -11,7 +11,6 @@ import TruchetLab from './truchetLab.js';
 import { PRESETS } from './presets.js';
 import { cloneStructured } from './utils.js';
 
-
 // Configuration
 const GRID_WIDTH = 240;
 const GRID_HEIGHT = 150;
@@ -309,6 +308,45 @@ function setHotkeyOverlayVisibility(show) {
     appState.hotkeysHidden = !show;
 }
 
+function updateHotkeyHintOffset() {
+    if (!hotkeyHintOverlay) return;
+    const overlay = document.getElementById('hotkeyOverlay');
+    if (!overlay || overlay.style.display === 'none') {
+        document.documentElement?.style?.setProperty('--hotkey-hint-offset', '0px');
+        return;
+    }
+
+    const overlayRect = overlay.getBoundingClientRect();
+    const computedLeft = parseFloat(getComputedStyle(hotkeyHintOverlay).left || '10') || 10;
+    const gap = 10;
+    const buttonWidth = hotkeyHintOverlay.offsetWidth || 34;
+    const safeMargin = 10;
+    const desiredOffset = overlayRect.width + gap;
+    const maxOffset = Math.max(0, window.innerWidth - (computedLeft + buttonWidth + safeMargin));
+    const clamped = Math.max(0, Math.min(desiredOffset, maxOffset));
+    document.documentElement?.style?.setProperty('--hotkey-hint-offset', `${clamped}px`);
+}
+
+function setHotkeyOverlayOpen(open) {
+    const shouldOpen = Boolean(open);
+    setHotkeyOverlayVisibility(shouldOpen);
+    if (shouldOpen) updateHotkeyOverlay();
+
+    if (hotkeyHintOverlay) {
+        hotkeyHintOverlay.classList.toggle('is-open', shouldOpen);
+        hotkeyHintOverlay.title = shouldOpen ? 'Hide Quick Keys' : 'Show Quick Keys';
+    }
+
+    if (!shouldOpen) {
+        document.documentElement?.style?.setProperty('--hotkey-hint-offset', '0px');
+        return;
+    }
+
+    requestAnimationFrame(() => {
+        updateHotkeyHintOffset();
+    });
+}
+
 function pushHistoryAction(label, undoFn, redoFn) {
     appState.undoStack.push({ label, undo: undoFn, redo: redoFn });
     if (appState.undoStack.length > appState.historyLimit) {
@@ -347,6 +385,42 @@ function updateRulesetTitle(name) {
     }
 }
 
+function formatRandomOrigin(origin) {
+    if (!origin) return null;
+    if (origin.kind === 'preset') return origin.presetName || null;
+    if (origin.kind === 'pool') {
+        const meta = origin.meta || {};
+        const parts = [];
+        if (meta.family) parts.push(meta.family);
+        if (typeof meta.ecaRule === 'number') parts.push(`ECA ${meta.ecaRule}`);
+        if (meta.mapping === 'eca8bit_to_turmite_v1') parts.push('v1');
+        else if (meta.mapping === 'eca8bit_to_turmite_v2') parts.push('v2');
+        else if (meta.mapping === 'eca_stream_to_turmite_2s3c_v1') parts.push('3c');
+        return parts.length ? parts.join(' ') : (origin.seedId || null);
+    }
+    return null;
+}
+
+function getRandomHeaderLabelForSizing(samplePool) {
+    const generated = RuleGenerators.generateSymmetricalWithOrigin(samplePool);
+    const originLabel = formatRandomOrigin(generated.origin);
+    return originLabel ? `Random · ${originLabel}` : 'Random';
+}
+
+function setRulesetTitleSizingFromRandomSamples() {
+    const sampleCount = 21;
+    const lengths = [];
+
+    for (let i = 0; i < sampleCount; i++) {
+        lengths.push(getRandomHeaderLabelForSizing(PRESETS).length);
+    }
+
+    lengths.sort((a, b) => a - b);
+    const median = lengths[Math.floor(lengths.length / 2)] ?? 28;
+    const clamped = Math.max(14, Math.min(56, median));
+    document.documentElement?.style?.setProperty('--ruleset-title-ch', String(clamped));
+}
+
 function init() {
     // Initialize Simulation
     appState.sim = new AntSimulation(GRID_WIDTH, GRID_HEIGHT);
@@ -355,6 +429,7 @@ function init() {
     appState.renderer = new GridRenderer(canvas);
     appState.renderer.setScale(7); // Function to set initial scale
     appState.renderer.resize(GRID_WIDTH, GRID_HEIGHT);
+    
     syncTruchetMode(false);
     if (speedSlider) {
         speedSlider.min = SPEED_MIN;
@@ -375,6 +450,7 @@ function init() {
     // Populate UI
     populatePresets();
     populateThemes();
+    setRulesetTitleSizingFromRandomSamples();
 
     updateColorPicker();
 
@@ -421,7 +497,7 @@ function init() {
     // Force a redraw after a short delay to ensure everything is settled
     requestRender({ grid: true, forceFullRedraw: true });
     processRenderQueue();
-    setHotkeyOverlayVisibility(false);
+    setHotkeyOverlayOpen(false);
 }
 
 function populatePresets() {
@@ -447,19 +523,46 @@ function populatePresets() {
 function populateThemes() {
     themeSelect.innerHTML = '';
 
-    // Add "Generate Random" option
-    const randomOption = document.createElement('option');
-    randomOption.value = "generate_random";
-    randomOption.textContent = "✨ Generate Random ✨";
-    themeSelect.appendChild(randomOption);
+    const customOption = document.createElement('option');
+    customOption.value = 'Custom';
+    customOption.textContent = 'Custom';
+    themeSelect.appendChild(customOption);
 
-    for (const name of Object.keys(appState.renderer.palettes)) {
+    const palettes = (appState.renderer && appState.renderer.palettes) ? appState.renderer.palettes : {};
+    for (const name of Object.keys(palettes)) {
+        if (name === 'Custom') continue;
         const option = document.createElement('option');
         option.value = name;
         option.textContent = name;
         themeSelect.appendChild(option);
     }
-    themeSelect.value = "Classic";
+
+    themeSelect.value = 'Custom';
+}
+
+function pickThemePaletteName(desiredColorCount) {
+    const palettes = appState.renderer && appState.renderer.palettes ? appState.renderer.palettes : {};
+    const entries = Object.entries(palettes).filter(([name]) => name !== 'Custom');
+    if (entries.length === 0) return null;
+
+    const desired = Math.min(5, Math.max(2, Number.isFinite(desiredColorCount) ? desiredColorCount : 5));
+    const candidates = entries.filter(([, colors]) => Array.isArray(colors) && colors.length >= desired);
+    const pool = candidates.length ? candidates : entries;
+    return pool[Math.floor(Math.random() * pool.length)][0] || null;
+}
+
+function applyThemePalette(desiredColorCount) {
+    const name = pickThemePaletteName(desiredColorCount);
+    const desired = Math.min(5, Math.max(2, Number.isFinite(desiredColorCount) ? desiredColorCount : 5));
+
+    if (name) {
+        appState.renderer.setPalette(name);
+        if (themeSelect) themeSelect.value = name;
+        return;
+    }
+
+    appState.renderer.setCustomPalette(appState.renderer.generateRandomPalette(desired));
+    if (themeSelect) themeSelect.value = 'Custom';
 }
 
 
@@ -956,9 +1059,7 @@ function setupControls() {
                 } else {
                     // Calculate required colors from state 0 (representative)
                     const numColors = Object.keys(preset.rules[0]).length;
-                    const newPalette = renderer.generateRandomPalette(numColors);
-                    renderer.setCustomPalette(newPalette);
-                    themeSelect.value = "Custom";
+                    applyThemePalette(numColors);
                 }
 
                 updateColorPicker();
@@ -996,11 +1097,14 @@ function setupControls() {
                 let isValid = false;
                 let attempts = 0;
                 const maxAttempts = 10;
+                let lastOriginLabel = null;
 
                 // Retry Loop for Quality Control
                 do {
                     attempts++;
-                    newRules = RuleGenerators.generateSymmetrical(PRESETS);
+                    const generated = RuleGenerators.generateSymmetricalWithOrigin(PRESETS);
+                    newRules = generated.rules;
+                    lastOriginLabel = formatRandomOrigin(generated.origin);
 
                     const strategies = [
                         'center', 'line', 'vertical', 'cross', 'diamond', 'ring', 'grid3', 'diagonal', 'corners'
@@ -1020,9 +1124,10 @@ function setupControls() {
                     console.log(`Success! Valid rules generated on attempt ${attempts}.`);
                 }
 
+            updateRulesetTitle(lastOriginLabel ? `Random · ${lastOriginLabel}` : 'Random');
+
             appState.currentRules = newRules;
             sim.setRules(newRules);
-            updateRulesetTitle("Random");
 
             sim.ants = [];
 
@@ -1074,9 +1179,7 @@ function setupControls() {
                 // Handle Colors: Logic-Driven Palette Sizing
                 // We check state '0' as a representative sample of the rule dimensions.
                 const numColors = Object.keys(newRules[0]).length;
-                const newPalette = renderer.generateRandomPalette(numColors);
-                renderer.setCustomPalette(newPalette);
-                themeSelect.value = "Custom";
+                applyThemePalette(numColors);
                 syncTruchetMode(renderer.renderMode === 'truchet');
 
                 rulePreset.selectedIndex = -1;
@@ -1296,15 +1399,14 @@ function setupControls() {
 
     if (hotkeyHintOverlay) {
         hotkeyHintOverlay.addEventListener('click', () => {
-            setHotkeyOverlayVisibility(true);
-            updateHotkeyOverlay();
-            hotkeyHintOverlay.style.display = 'none';
+            setHotkeyOverlayOpen(appState.hotkeysHidden);
         });
     }
 
     themeSelect.addEventListener('change', (e) => {
         performWithHistory('Theme Change', () => {
-            renderer.setPalette(e.target.value);
+            const selected = e.target.value;
+            renderer.setPalette(selected);
             updateColorPicker();
             requestRender({ grid: true, forceFullRedraw: true });
             processRenderQueue();
@@ -1329,10 +1431,7 @@ function setupControls() {
                 const activeRules = sim.rules;
                 const numColors = Object.keys(activeRules[0]).length;
 
-                const newPalette = renderer.generateRandomPalette(numColors);
-                renderer.setCustomPalette(newPalette);
-
-                themeSelect.value = "Custom";
+                applyThemePalette(numColors);
                 updateColorPicker();
                 requestRender({ grid: true, forceFullRedraw: true });
                 processRenderQueue();
@@ -1409,8 +1508,7 @@ function setupControls() {
                 randomizeBtn.click();
                 break;
             case 's':
-                setHotkeyOverlayVisibility(appState.hotkeysHidden);
-                updateHotkeyOverlay();
+                setHotkeyOverlayOpen(appState.hotkeysHidden);
                 break;
             case 'c':
                 if (generateRandomThemeBtn) generateRandomThemeBtn.click();
@@ -1490,6 +1588,10 @@ function setupControls() {
                 if (showHideBtn) showHideBtn.click();
                 break;
         }
+    });
+
+    window.addEventListener('resize', () => {
+        if (!appState.hotkeysHidden) updateHotkeyHintOffset();
     });
 }
 
@@ -1733,9 +1835,7 @@ function applyTruchetDesign(design) {
     syncTruchetMode(true);
 
     const numColors = Object.keys(design.rules[0]).length;
-    const palette = renderer.generateRandomPalette(numColors);
-    renderer.setCustomPalette(palette);
-    if (themeSelect) themeSelect.value = "Custom";
+    applyThemePalette(numColors);
 
     rulePreset.selectedIndex = -1;
     const label = design.label || 'Hidden Truchet';
@@ -1811,7 +1911,7 @@ function updateHotkeyOverlay() {
     const is3DText = appState.parallaxMode === 'mouse' ? '🌀 Mouse Parallax: ON' : '⬜ Mouse Parallax: OFF';
     const gridText = appState.renderer.showGrid ? '⊞ Grid: ON' : '⊞ Grid: OFF';
     overlay.innerHTML = `
-        <strong style="color: #00ff88;">Quick Keys</strong><br>
+        <strong style="color: var(--accent);">Quick Keys</strong><br>
         [R] Randomize <br>
         [1/2] Cycle Presets<br>
         [3] Restart Current Rule-Set<br>

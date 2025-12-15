@@ -2,7 +2,8 @@
     --bg-color: #1a1a1a;
     --text-color: #f0f0f0;
     --panel-bg: #2a2a2a;
-    --accent: #00ff88;
+    --accent: #00d98a;
+    --accent-rgb: 0, 217, 138;
 }
 
 * {
@@ -54,10 +55,36 @@ canvas {
     background: rgba(20, 20, 20, 0.85);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(0, 255, 136, 0.3);
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
     border-radius: 8px;
     padding: 12px 16px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+#topStatusBar {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    z-index: 105;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0px 5px;
+    gap: 14px;
+    width: 535px;
+    height: 34px;
+}
+
+#topStatusBar #rulesetDisplay {
+    flex: 0 0 auto;
+    white-space: wrap;
+}
+
+#topStatusBar #spawnOverlay {
+    flex: 1 1 auto;
+    text-align: right;
+    white-space: nowrap;
 }
 
 
@@ -87,13 +114,13 @@ canvas {
 /* Hover effect (even though pointer-events: none, this works on parent hover) */
 #hotkeyOverlay:hover {
     background: rgba(20, 20, 20, 0.95);
-    border-color: rgba(0, 255, 136, 0.5);
+    border-color: rgba(var(--accent-rgb), 0.5);
 }
 
 /* Key highlights */
 #hotkeyOverlay strong {
-    color: #00ff88;
-    text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
     font-size: 1.1em;
 }
 
@@ -108,7 +135,7 @@ canvas {
     border-radius: 8px;
     padding: 2px;
     background: linear-gradient(135deg,
-            rgba(0, 255, 136, 0.1) 0%,
+            rgba(var(--accent-rgb), 0.1) 0%,
             rgba(0, 200, 255, 0.05) 100%);
     -webkit-mask:
         linear-gradient(#fff 0 0) content-box,
@@ -140,10 +167,11 @@ canvas {
 
 #statsOverlay {
     position: absolute;
-    top: 10px;
+    top: 56px;
     left: 10px;
     z-index: 100;
-    font-family: 'Courier New', monospace;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -182,31 +210,40 @@ canvas {
     user-select: none;
     cursor: pointer;
     pointer-events: auto;
+    transition: transform 0.35s ease, background 0.0s ease, border-color 0.2s ease, opacity 0.0s ease;
+    transform: translateX(0);
+}
+
+#hotkeyHintOverlay.is-open {
+    transform: translateX(var(--hotkey-hint-offset, 0px));
 }
 
 #spawnOverlay {
-    opacity: 0.75;
     font-size: 0.9em;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
 }
 
 #rulesetDisplay {
     font-size: 1.2em;
     font-weight: bold;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
 }
 
 #speedOverlay {
     font-size: 0.9em;
     font-weight: normal;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    ;
 }
 
 #ruleSummary {
     font-family: "SFMono-Regular", "Consolas", "Courier New", monospace;
     font-size: 0.85em;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
     white-space: pre-wrap;
     word-break: break-word;
     margin: 2px 0 0 0;
@@ -220,7 +257,7 @@ canvas {
     background: rgba(20, 20, 20, 0.85);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(0, 255, 136, 0.3);
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
     padding: 0;
     /* REMOVE all internal padding from #controls */
     border-radius: 8px;
@@ -236,14 +273,27 @@ canvas {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
+#controls.minimized {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    gap: 0;
+    pointer-events: none;
+}
+
 .panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 15px;
     /* REMOVE the margin and border-bottom that was separating the header */
-    margin-bottom: 0;
     padding-bottom: 0;
-    border-bottom: none;
     /* Add padding to the header itself to define the boundary */
     padding: 10px 10px 5px 10px;
     /* Top, Right, Bottom (less), Left */
@@ -255,9 +305,8 @@ canvas {
     /* Matched previous inline style */
     margin: 0;
     /* Ensure the title is slightly separated from the button */
-    margin-right: 15px;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
 }
 
 
@@ -280,58 +329,95 @@ canvas {
     font-size: 0.9em;
 }
 
-#controls:not(.minimized) #showHideBtn:hover {
-    background-color: #444;
-    color: white;
+/* --- BUTTON STYLE WHEN CONTROLS ARE OPEN (Show/Hide Button) --- */
+#controls:not(.minimized) #showHideBtn.hud-toggle-btn {
+    /* Base Glass Button Appearance */
+    pointer-events: auto;
+    cursor: pointer;
+
+    /* Inherit/Apply Glassmorphism */
+    background-color: rgba(8, 8, 8, 0.15);
+    /* Semi-transparent */
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+
+    /* Sizing and Text */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 10px;
+    /* Generous padding for a button */
+    font-size: 11px;
+    font-weight: bold;
+    border-radius: 7;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+
+    /* Transitions */
+    transition: all 0.2s ease;
+}
+
+#controls:not(.minimized) #showHideBtn.hud-toggle-btn:hover {
+    background-color: rgba(7, 6, 6, 0.418);
+    box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.6);
+}
+
+#controls:not(.minimized) #showHideBtn.hud-toggle-btn:active {
+    transform: translateY(1px);
 }
 
 /* Minimized State */
 /* Minimized State */
-#controls.minimized {
+/* --- BUTTON STYLE WHEN CONTROLS ARE MINIMIZED (Show Button) --- */
+
+#controls.minimized #showHideBtn.hud-toggle-btn {
+    pointer-events: auto;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
     min-width: auto;
     width: auto;
-    padding: 5px 10px;
-    background: transparent;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    border: none;
+    padding: 6px 10px;
     height: auto;
-    overflow: visible;
-    pointer-events: none;
-    /* Allow clicks to pass through transparent areas */
-    box-shadow: none;
-    padding: 5px 10px;
-    /* Keep padding here for the small button */
+    
+background: rgba(20, 20, 20, 0.85);
+backdrop-filter: blur(10px);
+border: 1px solid rgba(var(--accent-rgb), 0.3);
+border-radius: 8px;
+color: var(--accent);
+text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+transition: all 0.2s ease;
+}
+
+#controls.minimized #showHideBtn.hud-toggle-btn:hover {
+    background: rgba(20, 20, 20, 0.95);
+    border-color: rgba(var(--accent-rgb), 0.5);
 }
 
 #controls.minimized .panel-header {
     margin-bottom: 0;
     border-bottom: none;
-    display: block;
-    /* Or flex, but we hide the title */
+    padding: 0;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    
 }
 
 #controls.minimized .panel-title {
     display: none;
 }
 
-#controls.minimized #showHideBtn {
-    pointer-events: auto;
-    /* Re-enable clicks on the button */
-    text-decoration: none;
-    background-color: #333;
-    /* Give it a background so it's visible */
-    padding: 5px 10px;
-    border-radius: 4px;
-    border: 1px solid #555;
-}
 
 #controls.minimized #controls-content {
     display: none;
+
+
 }
 
-/* Redefine the content area to add back the necessary internal padding, 
-   excluding the button */
+
 #controls-content {
     padding: 0 10px 10px 10px;
     /* Pad the content area */
@@ -493,12 +579,19 @@ details.config-details summary:hover {
     background: none;
     border: none;
     color: var(--text-color);
+    pointer-events: auto;
     cursor: pointer;
-    font-size: 1em;
-    padding: 0;
-    text-decoration: none;
-    opacity: 0.8;
-    transition: opacity 0.2s;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    transition: all 0.2s ease;
+
+
+    background-color: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--accent);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 #showHideBtn:hover {
@@ -547,7 +640,9 @@ details.config-details summary:hover {
 .secondary-btn {
     background-color: #444;
     border: 1px solid #666;
-    color: #ddd;
+    margin-right: 15px;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
     margin-top: 5px;
     width: 100%;
 }
@@ -555,6 +650,7 @@ details.config-details summary:hover {
 .secondary-btn:hover {
     background-color: #555;
     border-color: #888;
+
 }
 
 /* Keep inline controls uniform */
@@ -562,4 +658,73 @@ details.config-details summary:hover {
     width: auto;
     flex: 1;
     margin-top: 0;
+}
+
+/* 1. Target the new parent container */
+.button-group {
+    /* Turns the container into a grid layout */
+    display: grid;
+    /* Defines the columns: two columns, each taking up an equal fraction of the available space */
+    grid-template-columns: 1fr 1fr;
+    /* Add some space between the buttons */
+    gap: 10px;
+    /* Ensures the group is only as wide as its content (optional, but often desired) */
+    width: max-content;
+}
+
+.glass-overlay.hud-toggle-btn {
+    /* --- Your Existing Styling --- */
+    padding: 10px 20px;
+    font-size: 16px;
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+
+    /* --- Glassmorphism Fixes --- */
+    background-color: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    /* ... other styles ... */
+    pointer-events: auto;
+    /* <-- ADD THIS! */
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+
+
+.hud-toggle-btn:hover {
+    background: rgba(20, 20, 20, 0.95);
+    border-color: rgba(var(--accent-rgb), 0.5);
+}
+
+#hotkeyHintOverlay.glass-overlay.hud-toggle-btn {
+    background: rgba(20, 20, 20, 0.95);
+}
+
+#hotkeyHintOverlay.glass-overlay.hud-toggle-btn:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(var(--accent-rgb), 0.5);
+}
+
+#controls #showHideBtn.hud-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-height: 28px;
+    padding: 2px 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8em;
+}
+
+#controls #showHideBtn.hud-toggle-btn:active {
+    transform: translateY(1px);
+}
+
+#controls.minimized #showHideBtn.hud-toggle-btn {
+    background: rgba(20, 20, 20, 0.85);
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
 }

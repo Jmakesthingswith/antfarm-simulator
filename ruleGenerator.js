@@ -28,6 +28,166 @@ function countStatesAndColors(rules) {
     return { stateKeys, numStates, colors, numColors: colors.length };
 }
 
+function computeDynamicsStats(rules) {
+    const { stateKeys, colors, numStates, numColors } = countStatesAndColors(rules);
+    if (numStates === 0 || numColors === 0) {
+        return {
+            numStates,
+            numColors,
+            totalRules: 0,
+            writeChangeCount: 0,
+            nonNoTurnCount: 0,
+            nonZeroWriteFromZeroCount: 0,
+            absorbingColors: []
+        };
+    }
+
+    let totalRules = 0;
+    let writeChangeCount = 0;
+    let nonNoTurnCount = 0;
+    let nonZeroWriteFromZeroCount = 0;
+    let selfNextStateCount = 0;
+    let selfWriteCount = 0;
+
+    const absorbing = new Map();
+    for (const c of colors) absorbing.set(c, true);
+
+    for (const s of stateKeys) {
+        for (const c of colors) {
+            const r = rules[s][c];
+            totalRules++;
+            if (r.write !== c) writeChangeCount++;
+            else selfWriteCount++;
+            if (r.turn !== TURN.N) nonNoTurnCount++;
+            if (c === 0 && r.write !== 0) nonZeroWriteFromZeroCount++;
+            if (r.nextState === s) selfNextStateCount++;
+            if (r.write !== c) absorbing.set(c, false);
+        }
+    }
+
+    const absorbingColors = [];
+    for (const [c, isAbsorbing] of absorbing.entries()) {
+        if (isAbsorbing) absorbingColors.push(c);
+    }
+
+    return {
+        numStates,
+        numColors,
+        totalRules,
+        writeChangeCount,
+        nonNoTurnCount,
+        nonZeroWriteFromZeroCount,
+        selfNextStateCount,
+        selfWriteCount,
+        absorbingColors
+    };
+}
+
+function ensureStateFlow(baseRules, { perStateMinExternalTransitions = 1 } = {}) {
+    const rules = cloneRules(baseRules);
+    const { stateKeys, colors, numStates, numColors } = countStatesAndColors(rules);
+    if (numStates === 0 || numColors === 0) return rules;
+    if (stateKeys.length < 2) return rules;
+
+    const turnsActive = [TURN.L, TURN.R, TURN.U];
+    for (const s of stateKeys) {
+        let external = 0;
+        for (const c of colors) {
+            if (rules[s][c].nextState !== s) external++;
+        }
+        if (external >= perStateMinExternalTransitions) continue;
+
+        const c = colors[Math.floor(Math.random() * colors.length)];
+        const nextChoices = stateKeys.filter(x => x !== s);
+        rules[s][c].nextState = nextChoices[Math.floor(Math.random() * nextChoices.length)];
+        if (Math.random() < 0.75) rules[s][c].turn = turnsActive[Math.floor(Math.random() * turnsActive.length)];
+        if (Math.random() < 0.5 && colors.length > 1) {
+            const writeChoices = colors.filter(x => x !== c);
+            rules[s][c].write = writeChoices[Math.floor(Math.random() * writeChoices.length)];
+        }
+    }
+
+    return rules;
+}
+
+function boostRuleActivity(baseRules, {
+    intensity = 10,
+    maxNoTurnRatio = 0.55,
+    minWriteChangeRatio = 0.22
+} = {}) {
+    let rules = cloneRules(baseRules);
+    const { stateKeys, colors, numStates, numColors } = countStatesAndColors(rules);
+    if (numStates === 0 || numColors === 0) return rules;
+
+    const turnsActive = [TURN.L, TURN.R, TURN.U];
+
+    rules = ensureStateFlow(rules, { perStateMinExternalTransitions: 1 });
+
+    // Ensure the blank-grid bootstrap path can paint non-zero.
+    const nonZeroColors = colors.filter(c => c !== 0);
+    if (nonZeroColors.length) {
+        for (const s of stateKeys) {
+            const r0 = rules[s][0];
+            if (r0 && r0.write === 0) {
+                r0.write = nonZeroColors[Math.floor(Math.random() * nonZeroColors.length)];
+                r0.turn = turnsActive[Math.floor(Math.random() * turnsActive.length)];
+            }
+        }
+    }
+
+    // Break absorbing colors (colors that always rewrite themselves across all states).
+    const statsBefore = computeDynamicsStats(rules);
+    if (statsBefore.absorbingColors.length && colors.length > 1) {
+        for (const c of statsBefore.absorbingColors) {
+            const s = stateKeys[Math.floor(Math.random() * stateKeys.length)];
+            const choices = colors.filter(x => x !== c);
+            rules[s][c].write = choices[Math.floor(Math.random() * choices.length)];
+            rules[s][c].turn = turnsActive[Math.floor(Math.random() * turnsActive.length)];
+        }
+    }
+
+    // Push away from high no-turn ratios and low write-change ratios.
+    let stats = computeDynamicsStats(rules);
+    let guard = 0;
+    while (guard < 3 && stats.totalRules > 0) {
+        const noTurnRatio = 1 - (stats.nonNoTurnCount / stats.totalRules);
+        const writeChangeRatio = stats.writeChangeCount / stats.totalRules;
+        if (noTurnRatio <= maxNoTurnRatio && writeChangeRatio >= minWriteChangeRatio) break;
+
+        for (let i = 0; i < intensity; i++) {
+            const s = stateKeys[Math.floor(Math.random() * stateKeys.length)];
+            const c = colors[Math.floor(Math.random() * colors.length)];
+            const r = rules[s][c];
+
+            if (Math.random() < 0.6) {
+                const choices = colors.filter(x => x !== c);
+                if (choices.length) r.write = choices[Math.floor(Math.random() * choices.length)];
+            }
+            if (Math.random() < 0.75) {
+                r.turn = turnsActive[Math.floor(Math.random() * turnsActive.length)];
+            }
+            if (Math.random() < 0.4 && stateKeys.length > 1) {
+                const nextChoices = stateKeys.filter(x => x !== r.nextState);
+                if (nextChoices.length) r.nextState = nextChoices[Math.floor(Math.random() * nextChoices.length)];
+            }
+        }
+
+        stats = computeDynamicsStats(rules);
+        guard++;
+    }
+
+    // Avoid tables where state transitions collapse into mostly self-loops.
+    stats = computeDynamicsStats(rules);
+    if (stats.totalRules > 0) {
+        const selfNextRatio = stats.selfNextStateCount / stats.totalRules;
+        if (selfNextRatio > 0.85) {
+            rules = ensureStateFlow(rules, { perStateMinExternalTransitions: 2 });
+        }
+    }
+
+    return rules;
+}
+
 /**
  * Extracts structural statistics from a rule table.
  * @param {Object} rules - Rule table.
@@ -210,6 +370,29 @@ function diversifyStructure(baseRules, {
     return addedSomething ? rules : rules;
 }
 
+function ensureMinDimensions(baseRules, {
+    minStates = 3,
+    minColors = 3,
+    maxStates = 7,
+    maxColors = 7,
+    maxPasses = 4
+} = {}) {
+    let rules = cloneRules(baseRules);
+    for (let pass = 0; pass < maxPasses; pass++) {
+        const { numStates, numColors } = countStatesAndColors(rules);
+        if (numStates >= minStates && numColors >= minColors) break;
+        rules = diversifyStructure(rules, {
+            maxStates,
+            maxColors,
+            addStateChance: 1,
+            addColorChance: 1,
+            promoteNewColorWritesChance: 0.6,
+            forceAdd: true
+        });
+    }
+    return rules;
+}
+
 let _seedPoolCdf = null;
 let _seedPoolTotalWeight = 0;
 let _seedPoolBuckets = null;
@@ -365,8 +548,8 @@ const RuleGenerators = {
      * Cellular Automata inspired - evolves rules from seed state
      */
     cellularAutomata(numStates = null, numColors = null) {
-        const states = numStates || getWeightedCount(1);
-        const colors = numColors || getWeightedCount(2);
+        const states = Math.max(2, numStates || getWeightedCount(2));
+        const colors = Math.max(2, numColors || getWeightedCount(2));
         const rules = {};
 
         // Generate seed (State 0)
@@ -512,18 +695,27 @@ const RuleGenerators = {
      * Replaces main.js generateSymmetricalRules
      */
     generateSymmetrical(presets) {
+        return this.generateSymmetricalWithOrigin(presets).rules;
+    },
+
+    /**
+     * Generates a ruleset and returns origin metadata for UI labeling.
+     * @param {Object} presets - Visible presets map.
+     * @returns {{rules:Object, origin:null|{kind:'pool', seedId:string, meta:Object}|{kind:'preset', presetName:string}}}
+     */
+    generateSymmetricalWithOrigin(presets) {
         const strategy = Math.random();
 
-        // Balanced sources so visible presets meaningfully propagate into Randomize via mutation.
-        // 20% simple generators, 55% hidden CA seed pool, 25% visible preset mutation.
+        // Balanced sources so visible presets can propagate into Randomize via mutation without dominating.
+        // 20% simple generators, 70% hidden CA seed pool, 10% visible preset mutation.
         if (strategy < 0.20) {
             const r = Math.random();
-            if (r < 0.5) return this.cellularAutomata();
-            if (r < 0.8) return this.sacredGeometry();
-            return this.wolframStyle();
+            if (r < 0.5) return { rules: this.cellularAutomata(), origin: null };
+            if (r < 0.8) return { rules: this.sacredGeometry(), origin: null };
+            return { rules: this.wolframStyle(), origin: null };
         }
 
-        if (strategy < 0.75) {
+        if (strategy < 0.90) {
             const seed = pickSeedFromPool();
             if (seed && seed.rules) {
                 const classHint = seed.meta && typeof seed.meta.wolframClassHint === 'number'
@@ -563,17 +755,28 @@ const RuleGenerators = {
                     }
                 }
 
-                // Mutate after structure change so new dimensions become “active”.
-                return this.mutate(base, mutations, false);
+                if (shouldForceDiversify) {
+                    base = ensureMinDimensions(base, { minStates: 3, minColors: 3, maxStates: 7, maxColors: 7 });
+                } else if (Math.random() < 0.55) {
+                    base = ensureMinDimensions(base, { minStates: 3, minColors: 3, maxStates: 7, maxColors: 7, maxPasses: 2 });
+                }
+
+                const mutated = this.mutate(base, mutations, false);
+                const boosted = boostRuleActivity(mutated, { intensity: 12 });
+                return {
+                    rules: boosted,
+                    origin: { kind: 'pool', seedId: seed.id, meta: seed.meta || {} }
+                };
             }
             // Fallback if pool isn't available for some reason.
-            return this.wolframStyle();
+            return { rules: this.wolframStyle(), origin: null };
         }
 
         // Mutate a random preset (recognizable baseline).
         const presetNames = Object.keys(presets).filter(name => name !== "Langton's Ant");
-        if (presetNames.length === 0) return this.wolframStyle();
-        const randomPreset = presets[presetNames[Math.floor(Math.random() * presetNames.length)]];
+        if (presetNames.length === 0) return { rules: this.wolframStyle(), origin: null };
+        const presetName = presetNames[Math.floor(Math.random() * presetNames.length)];
+        const randomPreset = presets[presetName];
         let base = randomPreset.rules;
 
         // Often expand structure a bit so preset mutations don't collapse to tiny tables.
@@ -588,8 +791,14 @@ const RuleGenerators = {
             });
         }
 
+        if (Math.random() < 0.8) {
+            base = ensureMinDimensions(base, { minStates: 3, minColors: 3, maxStates: 7, maxColors: 7, maxPasses: 2 });
+        }
+
         const mutations = 10;
-        return this.mutate(base, mutations, false);
+        const mutated = this.mutate(base, mutations, false);
+        const boosted = boostRuleActivity(mutated, { intensity: 10 });
+        return { rules: boosted, origin: { kind: 'preset', presetName } };
     },
 
     /**
@@ -606,6 +815,19 @@ const RuleGenerators = {
     let height = null;
 
     if (!isValidRuleSetStructure(rules)) return false;
+    const dynamics = computeDynamicsStats(rules);
+    if (dynamics.totalRules > 0) {
+        if (dynamics.nonZeroWriteFromZeroCount === 0) return false;
+        if (dynamics.absorbingColors.length > 0) return false;
+
+        const writeChangeRatio = dynamics.writeChangeCount / dynamics.totalRules;
+        const noTurnRatio = 1 - (dynamics.nonNoTurnCount / dynamics.totalRules);
+        const selfNextRatio = dynamics.selfNextStateCount / dynamics.totalRules;
+        if (writeChangeRatio < 0.22) return false;
+        if (noTurnRatio > 0.68) return false;
+        if (selfNextRatio > 0.92) return false;
+        if (dynamics.nonZeroWriteFromZeroCount < Math.min(2, dynamics.numStates)) return false;
+    }
 
     if (typeof simOrWidth === 'number') {
         // Signature (rules, strategy, width, height)
@@ -645,27 +867,36 @@ const RuleGenerators = {
     if (testSim.orientations?.fill) testSim.orientations.fill(0);
     testSim.stepCount = 0;
 
-    // Spawn validation ants
-    const antCount = 8;
+    // Spawn validation ants (keep low to avoid "many ants hide stasis" false passes).
+    const antCount = 4;
     for (let i = 0; i < antCount; i++) {
         const geometry = this.getSpawnGeometry(strategy, i, antCount, width, height);
         const facing = Math.floor(Math.random() * 4);
         testSim.addAnt(geometry.x, geometry.y, facing);
     }
 
-    // Warm up, then measure sustained grid activity.
-    const warmupSteps = 300;
-    const measureSteps = 900;
+    // Warm up, then measure sustained grid activity across two windows to reject early-but-short-lived patterns.
+    const warmupSteps = 800;
+    const measureChunkSteps = 2000;
+    const longTailSteps = 9000;
 
     testSim.update(warmupSteps);
 
-    const gridBefore = testSim.grid.slice();
+    const gridA = testSim.grid.slice();
 
-    testSim.update(measureSteps);
+    testSim.update(measureChunkSteps);
 
     let changedCells = 0;
     for (let i = 0; i < testSim.grid.length; i++) {
-        if (testSim.grid[i] !== gridBefore[i]) changedCells++;
+        if (testSim.grid[i] !== gridA[i]) changedCells++;
+    }
+
+    const gridB = testSim.grid.slice();
+    testSim.update(measureChunkSteps);
+
+    let changedCellsLate = 0;
+    for (let i = 0; i < testSim.grid.length; i++) {
+        if (testSim.grid[i] !== gridB[i]) changedCellsLate++;
     }
 
     let paintedCells = 0;
@@ -683,10 +914,24 @@ const RuleGenerators = {
 
     const minChangedCells = Math.max(12, Math.min(300, colorCount * 10));
     const minPaintedCells = Math.max(40, Math.min(800, colorCount * 30));
+    const minLateChangedCells = Math.max(10, Math.floor(minChangedCells * 0.55));
 
     if (changedCells < minChangedCells) return false;
+    if (changedCellsLate < minLateChangedCells) return false;
+    if (changedCellsLate < changedCells * 0.25) return false;
     if (paintedCells < minPaintedCells) return false;
     if (uniqueNonZeroColors.size < minNonZeroColors) return false;
+
+    const gridC = testSim.grid.slice();
+    testSim.update(longTailSteps);
+
+    let changedTail = 0;
+    for (let i = 0; i < testSim.grid.length; i++) {
+        if (testSim.grid[i] !== gridC[i]) changedTail++;
+    }
+
+    if (changedTail < Math.max(10, Math.floor(minChangedCells * 0.5))) return false;
+    if (changedTail < changedCellsLate * 0.2) return false;
 
     return true;
 },
