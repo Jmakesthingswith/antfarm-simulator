@@ -4,11 +4,19 @@
     --panel-bg: #1c1b1bf0;
     --accent: #1eeba0;
     --accent-rgb: 0, 217, 138;
-    --ui-surface-bg: rgba(8, 8, 8, 0.421);
+    --accent-glow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    --accent-glow-strong: 0 0 15px rgba(var(--accent-rgb), 0.6);
+    --ui-surface-bg: rgba(8, 8, 8, 0.626);
     --ui-surface-bg-hover: rgba(8, 8, 8, 0.46);
     --ui-surface-border: rgba(var(--accent-rgb), 0.3);
     --ui-surface-border-hover: rgba(var(--accent-rgb), 0.5);
     --ui-surface-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    --ui-surface-padding: 12px 16px;
+    --ui-radius: 8px;
+    --ui-radius-lg: 12px;
+    --ui-blur: 10px;
+    --ui-blur-sm: 8px;
+    --ui-mono-font: "SFMono-Regular", "Consolas", "Courier New", monospace;
 }
 
 
@@ -59,12 +67,26 @@ canvas {
 
 .glass-overlay {
     background: var(--ui-surface-bg);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(var(--ui-blur));
+    backdrop-filter: blur(var(--ui-blur));
     border: 1px solid var(--ui-surface-border);
-    border-radius: 8px;
-    padding: 12px 16px;
+    border-radius: var(--ui-radius);
+    padding: var(--ui-surface-padding);
     box-shadow: var(--ui-surface-shadow);
+
+
+    font-family: var(--ui-mono-font);
+    font-size: 0.85em;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.8);
+
+
+    transition: all 0.3s ease;
+
+
+    -webkit-user-select: none;
+    user-select: none;
+    pointer-events: none;
 }
 
 #topStatusBar {
@@ -99,42 +121,21 @@ canvas {
     bottom: 10px;
     left: 10px;
     z-index: 100;
-    color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    color: var(--text-color);
 }
 
-.glass-overlay {
-    /* Typography */
-    font-family: 'Courier New', monospace;
-    font-size: 0.85em;
-    line-height: 1.6;
-    color: rgba(255, 255, 255, 0.8);
-
-    /* Smooth transitions */
-    transition: all 0.3s ease;
-
-    /* Prevent text selection */
-    -webkit-user-select: none;
-    user-select: none;
-    pointer-events: none;
-}
-
-/* Hover effect (even though pointer-events: none, this works on parent hover) */
 #hotkeyOverlay:hover {
     background: var(--ui-surface-bg-hover);
     border-color: var(--ui-surface-border-hover);
 }
 
-/* Key highlights */
 #hotkeyOverlay strong {
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
     font-size: 1.1em;
     transition: transform 0.35s ease, background 0.0s ease, border-color 0.2s ease, opacity 0.0s ease;
     transform: translateX(0);
 }
 
-/* Bracket styling for keys */
 #hotkeyOverlay::before {
     content: '';
     position: absolute;
@@ -142,23 +143,10 @@ canvas {
     left: 0;
     right: 0;
     bottom: 0;
-    border-radius: 8px;
+    border-radius: var(--ui-radius);
     padding: 2px;
-    background: linear-gradient(135deg,
-            rgba(var(--accent-rgb), 0.1) 0%,
-            rgba(0, 200, 255, 0.05) 100%);
-    -webkit-mask:
-        linear-gradient(#fff 0 0) content-box,
-        linear-gradient(#fff 0 0);
-    mask:
-        linear-gradient(#fff 0 0) content-box,
-        linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
 }
 
-/* Optional: Add animation on state change */
 @keyframes pulse {
 
     0%,
@@ -181,7 +169,7 @@ canvas {
     left: 10px;
     z-index: 100;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    text-shadow: var(--accent-glow);
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -216,12 +204,8 @@ canvas {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Courier New', monospace;
     font-weight: bold;
     color: rgba(255, 255, 255, 0.85);
-    user-select: none;
-    cursor: pointer;
-    pointer-events: auto;
     transition: transform 0.35s ease, background 0.0s ease, border-color 0.2s ease, opacity 0.0s ease;
     transform: translateX(0);
 }
@@ -233,48 +217,46 @@ canvas {
 #spawnOverlay {
     font-size: 0.9em;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    text-shadow: var(--accent-glow);
 }
 
 #rulesetDisplay {
     font-size: 1.2em;
     font-weight: bold;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    text-shadow: var(--accent-glow);
 }
 
 #speedOverlay {
     font-size: 0.9em;
     font-weight: normal;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
-    ;
+    text-shadow: var(--accent-glow);
 }
 
 #ruleSummary {
-    font-family: "SFMono-Regular", "Consolas", "Courier New", monospace;
+    font-family: var(--ui-mono-font);
     font-size: 0.85em;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    text-shadow: var(--accent-glow);
     white-space: pre-wrap;
     word-break: break-word;
     margin: 2px 0 0 0;
 }
 
-/* Floating Control Panel */
 #controls {
     position: absolute;
     top: 10px;
     right: 10px;
     background: var(--ui-surface-bg);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(var(--ui-blur));
+    backdrop-filter: blur(var(--ui-blur));
     border: 1px solid var(--ui-surface-border);
     padding: 0;
-    border-radius: 8px;
+    border-radius: var(--ui-radius);
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
-    font-family: 'Courier New', monospace;
+    text-shadow: var(--accent-glow);
+    font-family: var(--ui-mono-font);
     display: flex;
     flex-direction: column;
     width: 300px;
@@ -282,7 +264,7 @@ canvas {
     max-width: 400px;
     transition: min-height 0.3s ease, padding 0.3s ease, min-width 0.3s ease, max-width 0.3s ease, width 0.3s ease;
     gap: 5px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--ui-surface-shadow);
 }
 
 #controls.minimized {
@@ -313,33 +295,15 @@ canvas {
     font-size: 1.2em;
     margin: 0;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    text-shadow: var(--accent-glow);
 }
 
 
-
-#controls:not(.minimized) #showHideBtn {
-    pointer-events: auto;
-    text-decoration: none;
-    background-color: #333;
-    color: #ccc;
-    padding: 5px 10px;
-    border-radius: 4px;
-    border: 1px solid #555;
-    width: auto;
-    margin-top: 0;
-    cursor: pointer;
-    font-size: 0.9em;
-}
 
 #controls:not(.minimized) #showHideBtn.hud-toggle-btn {
-    pointer-events: auto;
-    cursor: pointer;
-
     background-color: rgba(8, 8, 8, 0.15);
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(var(--ui-blur-sm));
     border: 1px solid var(--accent);
-    border-radius: 12px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -348,15 +312,14 @@ canvas {
     font-weight: bold;
     border-radius: 7px;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    text-shadow: var(--accent-glow);
 
-    /* Transitions */
     transition: all 0.2s ease;
 }
 
 #controls:not(.minimized) #showHideBtn.hud-toggle-btn:hover {
     background-color: rgba(7, 6, 6, 0.418);
-    box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.6);
+    box-shadow: var(--accent-glow-strong);
 }
 
 #controls:not(.minimized) #showHideBtn.hud-toggle-btn:active {
@@ -364,22 +327,23 @@ canvas {
 }
 
 #controls.minimized #showHideBtn.hud-toggle-btn {
-    pointer-events: auto;
-    cursor: pointer;
     font-size: 0.9em;
-    font-family: 'Courier New', monospace;
+    font-family: var(--ui-mono-font);
     font-weight: bold;
     min-width: auto;
     width: auto;
     padding: 6px 10px;
-    height: auto; 
+    height: auto;
     background: rgba(20, 20, 20, 0.85);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(var(--ui-blur));
     border: 1px solid rgba(var(--accent-rgb), 0.3);
-    border-radius: 8px;
+    border-radius: var(--ui-radius);
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    text-shadow: var(--accent-glow);
     transition: all 0.2s ease;
+    position: absolute;
+    top: 10px;
+    right: 10px;
 }
 
 #controls.minimized #showHideBtn.hud-toggle-btn:hover {
@@ -394,7 +358,7 @@ canvas {
     display: flex;
     justify-content: flex-end;
     align-items: flex-end;
-    
+
 }
 
 #controls.minimized .panel-title {
@@ -414,7 +378,6 @@ canvas {
     /* Pad the content area */
 }
 
-/* Control Groups */
 .control-group {
     margin-bottom: 8px;
 }
@@ -424,10 +387,9 @@ canvas {
     margin-bottom: 5px;
     font-size: 0.9em;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    text-shadow: var(--accent-glow);
 }
 
-/* Buttons & Inputs */
 button,
 select,
 input[type="number"] {
@@ -439,7 +401,7 @@ input[type="number"] {
     font-size: 0.9em;
     min-height: 32px;
     padding: 5px 10px;
-    
+
 }
 
 button:hover {
@@ -450,14 +412,13 @@ button:active {
     background-color: #777;
 }
 
-/* Controls panel: match HUD surface styling */
 #controls button,
 #controls select,
 #controls input[type="number"] {
     background: var(--ui-surface-bg);
     border: 1px solid var(--ui-surface-border);
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    text-shadow: var(--accent-glow);
 }
 
 #controls button:hover,
@@ -471,7 +432,6 @@ select {
     width: 100%;
 }
 
-/* Main Actions Group */
 .main-actions {
     display: flex;
     gap: 5px;
@@ -484,16 +444,14 @@ select {
     padding: 5px 0;
 }
 
-/* Uniform control sizing within panel */
 #controls button,
 #controls select {
     min-height: 32px;
     font-size: 0.9em;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    text-shadow: var(--accent-glow);
 }
 
-/* Slider Container */
 .slider-container {
     margin-bottom: 10px;
 }
@@ -508,14 +466,12 @@ input[type="range"] {
     cursor: pointer;
 }
 
-/* Separator */
 .control-separator {
     border: 0;
     border-top: 1px solid #555;
     margin: 10px 0;
 }
 
-/* Collapsible Config */
 details.config-details {
     border: 1px solid #444;
     border-radius: 3px;
@@ -544,10 +500,10 @@ details.config-details summary:hover {
     width: 100%;
     background-color: #222;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    text-shadow: var(--accent-glow);
     border: 1px solid #555;
     border-radius: 3px;
-    font-family: monospace;
+    font-family: var(--ui-mono-font);
     font-size: 0.8em;
     resize: vertical;
     box-sizing: border-box;
@@ -560,7 +516,7 @@ details.config-details summary:hover {
     border: none;
     color: white;
     font-weight: bold;
-    margin-top: 4;
+    margin-top: 4px;
     width: 100%;
 }
 
@@ -575,8 +531,8 @@ details.config-details summary:hover {
     gap: 5px;
     margin-top: 10px;
     background: rgba(20, 20, 20, 0.9);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(var(--ui-blur));
+    backdrop-filter: blur(var(--ui-blur));
     border-left: 1px solid rgba(255, 255, 255, 0.1);
     padding: 12px;
     /* Extra breathing room */
@@ -589,18 +545,15 @@ details.config-details summary:hover {
     position: static;
     background: none;
     border: none;
-    color: var(--text-color);
-    pointer-events: auto;
-    cursor: pointer;
-    font-family: 'Courier New', monospace;
+    font-family: var(--ui-mono-font);
     font-weight: bold;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    text-shadow: var(--accent-glow);
     transition: all 0.2s ease;
 
 
     background-color: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(var(--ui-blur-sm));
     border: 1px solid var(--accent);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
@@ -653,7 +606,7 @@ details.config-details summary:hover {
     border: 1px solid #666;
     margin-right: 15px;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+    text-shadow: var(--accent-glow);
     margin-top: 5px;
     width: 100%;
 }
@@ -664,22 +617,17 @@ details.config-details summary:hover {
 
 }
 
-/* Keep inline controls uniform */
 .main-actions .secondary-btn {
     width: auto;
     flex: 1;
     margin-top: 0;
 }
 
-/* 1. Target the new parent container */
+
 .button-group {
-    /* Turns the container into a grid layout */
     display: grid;
-    /* Defines the columns: two columns, each taking up an equal fraction of the available space */
     grid-template-columns: 1fr 1fr;
-    /* Add some space between the buttons */
     gap: 10px;
-    /* Ensures the group is only as wide as its content (optional, but often desired) */
     width: max-content;
 }
 
@@ -687,12 +635,8 @@ details.config-details summary:hover {
     padding: 10px 20px;
     font-size: 16px;
     color: var(--accent);
-    text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
-
-    background-color: var(--ui-surface-bg);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--ui-surface-border);
-    border-radius: 12px;
+    text-shadow: var(--accent-glow);
+    border-radius: var(--ui-radius-lg);
     pointer-events: auto;
     cursor: pointer;
     transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
@@ -701,7 +645,7 @@ details.config-details summary:hover {
 .hud-toggle-btn:hover {
     background: var(--ui-surface-bg-hover);
     border-color: var(--ui-surface-border-hover);
-    box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.6);
+    box-shadow: var(--accent-glow-strong);
 }
 
 #autoRandomizeBtn {
@@ -712,9 +656,7 @@ details.config-details summary:hover {
     width: auto;
     min-height: 28px;
     padding: 6px 10px;
-    font-family: 'Courier New', monospace;
     font-size: 0.8em;
-    pointer-events: auto;
 }
 
 #autoRandomizeBtn:active {
@@ -728,15 +670,9 @@ details.config-details summary:hover {
     width: auto;
     min-height: 28px;
     padding: 2px 10px;
-    font-family: 'Courier New', monospace;
     font-size: 0.8em;
 }
 
 #controls #showHideBtn.hud-toggle-btn:active {
     transform: translateY(1px);
-}
-
-#controls.minimized #showHideBtn.hud-toggle-btn {
-    background: var(--ui-surface-bg);
-    border: 1px solid var(--ui-surface-border);
 }
