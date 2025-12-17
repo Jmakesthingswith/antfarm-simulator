@@ -12,6 +12,10 @@ pnpm-lock.yaml
 
 .pnp.cjs
 
+.vscode/
+
+Icon
+
 .pnp.loader.mjs
 
 .eslintcache
