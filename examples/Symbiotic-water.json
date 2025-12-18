@@ -1,0 +1,101 @@
+{
+  "rules": {
+    "0": {
+      "0": {
+        "write": 1,
+        "turn": 1,
+        "nextState": 0
+      },
+      "1": {
+        "write": 2,
+        "turn": -1,
+        "nextState": 0
+      },
+      "2": {
+        "write": 3,
+        "turn": -1,
+        "nextState": 0
+      },
+      "3": {
+        "write": 0,
+        "turn": 1,
+        "nextState": 0
+      }
+    },
+    "1": {
+      "0": {
+        "write": 0,
+        "turn": 1,
+        "nextState": 0
+      },
+      "1": {
+        "write": 3,
+        "turn": 1,
+        "nextState": 0
+      },
+      "2": {
+        "write": 2,
+        "turn": 1,
+        "nextState": 0
+      },
+      "3": {
+        "write": 1,
+        "turn": 1,
+        "nextState": 0
+      }
+    },
+    "2": {
+      "0": {
+        "write": 1,
+        "turn": -1,
+        "nextState": 0
+      },
+      "1": {
+        "write": 2,
+        "turn": -1,
+        "nextState": 0
+      },
+      "2": {
+        "write": 3,
+        "turn": -1,
+        "nextState": 0
+      },
+      "3": {
+        "write": 0,
+        "turn": -1,
+        "nextState": 0
+      }
+    }
+  },
+  "palette": [
+    "#000000ff",
+    "hsl(174, 80%, 60%)",
+    "hsl(294, 80%, 60%)",
+    "hsl(54, 80%, 60%)"
+  ],
+  "grid": "empty",
+  "ants": [
+    {
+      "x": 128,
+      "y": 75,
+      "facing": 2,
+      "state": 0
+    },
+    {
+      "x": 125,
+      "y": 80,
+      "facing": 0,
+      "state": 0
+    }
+  ],
+  "stepCount": 0,
+  "stepsPerSecond": 1810,
+  "width": 240,
+  "height": 150,
+  "renderMode": "truchet",
+  "seed": 1765559401861,
+  "showGrid": false,
+  "use3D": false,
+  "parallaxMode": "off",
+  "strictSpawnIndex": 0
+}

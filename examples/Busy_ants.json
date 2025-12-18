@@ -1,0 +1,81 @@
+{
+  "rules": {
+    "0": {
+      "0": {
+        "write": 1,
+        "turn": 1,
+        "nextState": 1
+      },
+      "1": {
+        "write": 0,
+        "turn": -1,
+        "nextState": 1
+      }
+    },
+    "1": {
+      "0": {
+        "write": 1,
+        "turn": 1,
+        "nextState": 0
+      },
+      "1": {
+        "write": 0,
+        "turn": 1,
+        "nextState": 0
+      }
+    }
+  },
+  "palette": [
+    "rgba(0, 0, 0, 1)",
+    "rgba(163, 234, 83, 1)"
+  ],
+  "grid": "empty",
+  "ants": [
+    {
+      "x": 184,
+      "y": 109,
+      "facing": 2,
+      "state": 0
+    },
+    {
+      "x": 234,
+      "y": 17,
+      "facing": 3,
+      "state": 0
+    },
+    {
+      "x": 64,
+      "y": 105,
+      "facing": 2,
+      "state": 0
+    },
+    {
+      "x": 168,
+      "y": 7,
+      "facing": 0,
+      "state": 0
+    },
+    {
+      "x": 78,
+      "y": 127,
+      "facing": 2,
+      "state": 0
+    },
+    {
+      "x": 132,
+      "y": 63,
+      "facing": 1,
+      "state": 0
+    }
+  ],
+  "stepCount": 0,
+  "stepsPerSecond": 30000,
+  "width": 240,
+  "height": 150,
+  "renderMode": "default",
+  "seed": 1765977765184,
+  "showGrid": false,
+  "use3D": false,
+  "parallaxMode": "off",
+  "strictSpawnIndex": 1
+}

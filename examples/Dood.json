@@ -1,0 +1,123 @@
+{
+  "rules": {
+    "0": {
+      "0": {
+        "write": 1,
+        "turn": -1,
+        "nextState": 0
+      },
+      "1": {
+        "write": 2,
+        "turn": 1,
+        "nextState": 0
+      },
+      "2": {
+        "write": 3,
+        "turn": 1,
+        "nextState": 0
+      },
+      "3": {
+        "write": 4,
+        "turn": -1,
+        "nextState": 0
+      },
+      "4": {
+        "write": 0,
+        "turn": -1,
+        "nextState": 0
+      }
+    },
+    "1": {
+      "0": {
+        "write": 4,
+        "turn": 1,
+        "nextState": 0
+      },
+      "1": {
+        "write": 2,
+        "turn": 1,
+        "nextState": 0
+      },
+      "2": {
+        "write": 0,
+        "turn": 1,
+        "nextState": 0
+      },
+      "3": {
+        "write": 3,
+        "turn": 1,
+        "nextState": 0
+      },
+      "4": {
+        "write": 1,
+        "turn": -1,
+        "nextState": 0
+      }
+    },
+    "2": {
+      "0": {
+        "write": 3,
+        "turn": 1,
+        "nextState": 0
+      },
+      "1": {
+        "write": 2,
+        "turn": -1,
+        "nextState": 0
+      },
+      "2": {
+        "write": 1,
+        "turn": -1,
+        "nextState": 0
+      },
+      "3": {
+        "write": 0,
+        "turn": 1,
+        "nextState": 0
+      },
+      "4": {
+        "write": 4,
+        "turn": 1,
+        "nextState": 0
+      }
+    }
+  },
+  "palette": [
+    "#000000ff",
+    "hsl(261, 90%, 60%)",
+    "hsl(351, 90%, 60%)",
+    "hsl(81, 90%, 60%)",
+    "hsl(171, 90%, 60%)"
+  ],
+  "grid": "empty",
+  "ants": [
+    {
+      "x": 117,
+      "y": 74,
+      "facing": 0,
+      "state": 1
+    },
+    {
+      "x": 117,
+      "y": 75,
+      "facing": 2,
+      "state": 0
+    },
+    {
+        "x": 117,
+        "y": 73,
+        "facing": 0,
+        "state": 0
+    }
+  ],
+  "stepCount": 0,
+  "stepsPerSecond": 10,
+  "width": 240,
+  "height": 150,
+  "renderMode": "default",
+  "seed": 1765556973992,
+  "showGrid": false,
+  "use3D": false,
+  "parallaxMode": "off",
+  "strictSpawnIndex": 7
+}

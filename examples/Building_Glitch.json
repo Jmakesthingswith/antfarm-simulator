@@ -1,0 +1,95 @@
+{
+  "rules": {
+    "0": {
+      "0": {
+        "write": 3,
+        "turn": 0,
+        "nextState": 0
+      },
+      "1": {
+        "write": 2,
+        "turn": -1,
+        "nextState": 0
+      },
+      "2": {
+        "write": 0,
+        "turn": 2,
+        "nextState": 0
+      },
+      "3": {
+        "write": 2,
+        "turn": 1,
+        "nextState": 1
+      }
+    },
+    "1": {
+      "0": {
+        "write": 2,
+        "turn": -1,
+        "nextState": 1
+      },
+      "1": {
+        "write": 2,
+        "turn": 2,
+        "nextState": 1
+      },
+      "2": {
+        "write": 2,
+        "turn": -1,
+        "nextState": 0
+      },
+      "3": {
+        "write": 3,
+        "turn": 0,
+        "nextState": 1
+      }
+    },
+    "2": {
+      "0": {
+        "write": 3,
+        "turn": 2,
+        "nextState": 0
+      },
+      "1": {
+        "write": 2,
+        "turn": 2,
+        "nextState": 0
+      },
+      "2": {
+        "write": 0,
+        "turn": 2,
+        "nextState": 2
+      },
+      "3": {
+        "write": 0,
+        "turn": 0,
+        "nextState": 2
+      }
+    }
+  },
+  "palette": [
+    "rgba(0, 0, 0, 1)",
+    "rgba(91, 31, 219, 1)",
+    "rgba(224, 130, 41, 1)",
+    "rgba(84, 232, 178, 1)"
+  ],
+  "grid": "empty",
+  "ants": [
+    {
+      "x": 120,
+      "y": 75,
+      "facing": 0,
+      "state": 0
+    }
+  ],
+  "stepCount": 0,
+  "stepsPerSecond": 30000,
+  "width": 240,
+  "height": 150,
+  "renderMode": "default",
+  "seed": 1766081179975,
+  "showGrid": false,
+  "use3D": false,
+  "parallaxMode": "off",
+  "strictSpawnIndex": 0
+}
