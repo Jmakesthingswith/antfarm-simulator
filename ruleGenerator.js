@@ -89,7 +89,7 @@ function ensureStateFlow(baseRules, { perStateMinExternalTransitions = 1 } = {})
     if (numStates === 0 || numColors === 0) return rules;
     if (stateKeys.length < 2) return rules;
 
-    const turnsActive = [TURN.L, TURN.R, TURN.U];
+    const turnsActive = [TURN.L, TURN.R, TURN.U, TURN.N];
     for (const s of stateKeys) {
         let external = 0;
         for (const c of colors) {
