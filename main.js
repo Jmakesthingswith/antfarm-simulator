@@ -56,7 +56,8 @@ const appState = {
     strictSpawnIndex: 0,
     hotkeysHidden: false,
     lastTruchetDesign: null,
-    gridDrawCount: 0
+    gridDrawCount: 0,
+    ultimateRandomizeEnabled: false
 };
 
 /**
@@ -118,6 +119,7 @@ const rulePreset = document.getElementById('rulePreset');
 const applyRulesBtn = document.getElementById('applyRulesBtn');
 const randomizeBtn = document.getElementById('randomizeBtn');
 const autoRandomizeBtn = document.getElementById('autoRandomizeBtn');
+const ultimateRandomizeBtn = document.getElementById('ultimateRandomizeBtn');
 const themeSelect = document.getElementById('themeSelect');
 const colorPickerContainer = document.getElementById('colorPickerContainer');
 const rulesetDisplay = document.getElementById('rulesetDisplay');
@@ -251,6 +253,21 @@ function applySnapshot(snapshot) {
 function updateUndoRedoUI() {
     if (undoBtn) undoBtn.disabled = appState.undoStack.length === 0;
     if (redoBtn) redoBtn.disabled = appState.redoStack.length === 0;
+}
+
+function updateUltimateRandomizeUI() {
+    if (!ultimateRandomizeBtn) return;
+    ultimateRandomizeBtn.classList.toggle('is-active', appState.ultimateRandomizeEnabled);
+    ultimateRandomizeBtn.textContent = appState.ultimateRandomizeEnabled
+        ? 'Ultimate Randomize: On'
+        : 'Ultimate Randomize: Off';
+}
+
+function setUltimateRandomizeEnabled(enabled) {
+    appState.ultimateRandomizeEnabled = Boolean(enabled);
+    RuleGenerators.setChaosMode(appState.ultimateRandomizeEnabled);
+    updateUltimateRandomizeUI();
+    updateHotkeyOverlay();
 }
 
 function currentStrictPreset() {
@@ -498,6 +515,7 @@ function init() {
     loop();
     updateHotkeyOverlay();
     updateUndoRedoUI();
+    updateUltimateRandomizeUI();
 
     // Force a redraw after a short delay to ensure everything is settled
     requestRender({ grid: true, forceFullRedraw: true });
@@ -1521,6 +1539,15 @@ function setupControls() {
         });
     }
 
+    if (ultimateRandomizeBtn) {
+        ultimateRandomizeBtn.addEventListener('click', () => {
+            const next = !appState.ultimateRandomizeEnabled;
+            setUltimateRandomizeEnabled(next);
+            if (next) RuleGenerators.randomizeChaosConfig();
+            ultimateRandomizeBtn.blur();
+        });
+    }
+
     window.addEventListener('beforeunload', () => {
         clearAutoRandomizeTimer();
         clearAutoRandomizeMonitorTimer();
@@ -1739,6 +1766,10 @@ function setupControls() {
                     setAutoRandomizeEnabled(!autoRandomizeState.enabled);
                     updateHotkeyOverlay();
                 }
+                break;
+            case 'x': // Toggle Ultimate Randomize
+                setUltimateRandomizeEnabled(!appState.ultimateRandomizeEnabled);
+                if (appState.ultimateRandomizeEnabled) RuleGenerators.randomizeChaosConfig();
                 break;
         }
     });
@@ -2064,6 +2095,7 @@ function updateHotkeyOverlay() {
     const is3DText = appState.parallaxMode === 'mouse' ? '🌀 Mouse Parallax: ON' : '⬜ Mouse Parallax: OFF';
     const gridText = appState.renderer.showGrid ? '⊞ Grid: ON' : '⊞ Grid: OFF';
     const autoText = appState.autoRandomizeEnabled ? '⏹ Stop Auto' : '▶ Start Auto';
+    const ultimateText = appState.ultimateRandomizeEnabled ? 'Ultimate Randomize: ON' : 'Ultimate Randomize: OFF';
     overlay.innerHTML = `
         <strong style="color: var(--accent);">Quick Keys</strong><br>
         [R] Randomize <br>
@@ -2071,6 +2103,7 @@ function updateHotkeyOverlay() {
         [3] Restart Current Rule-Set<br>
         [C] Randomize Colour<br>
         [N] ${autoText}<br>
+        [X] ${ultimateText}<br>
         [K] Cycle Spawn Rule<br>
         [T] Truchet Mode / Reroll<br>
         [Space] ${isPausedText}<br>
