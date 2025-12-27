@@ -259,8 +259,8 @@ function updateUltimateRandomizeUI() {
     if (!ultimateRandomizeBtn) return;
     ultimateRandomizeBtn.classList.toggle('is-active', appState.ultimateRandomizeEnabled);
     ultimateRandomizeBtn.textContent = appState.ultimateRandomizeEnabled
-        ? 'Ultimate Randomize: On'
-        : 'Ultimate Randomize: Off';
+        ? 'More Chaos: On'
+        : 'More Chaos: Off';
 }
 
 function setUltimateRandomizeEnabled(enabled) {
@@ -2095,7 +2095,7 @@ function updateHotkeyOverlay() {
     const is3DText = appState.parallaxMode === 'mouse' ? '🌀 Mouse Parallax: ON' : '⬜ Mouse Parallax: OFF';
     const gridText = appState.renderer.showGrid ? '⊞ Grid: ON' : '⊞ Grid: OFF';
     const autoText = appState.autoRandomizeEnabled ? '⏹ Stop Auto' : '▶ Start Auto';
-    const ultimateText = appState.ultimateRandomizeEnabled ? 'Ultimate Randomize: ON' : 'Ultimate Randomize: OFF';
+    const chaosText = appState.ultimateRandomizeEnabled ? 'More Chaos: ON' : 'More Chaos: OFF';
     overlay.innerHTML = `
         <strong style="color: var(--accent);">Quick Keys</strong><br>
         [R] Randomize <br>
@@ -2103,7 +2103,7 @@ function updateHotkeyOverlay() {
         [3] Restart Current Rule-Set<br>
         [C] Randomize Colour<br>
         [N] ${autoText}<br>
-        [X] ${ultimateText}<br>
+        [X] ${chaosText}<br>
         [K] Cycle Spawn Rule<br>
         [T] Truchet Mode / Reroll<br>
         [Space] ${isPausedText}<br>

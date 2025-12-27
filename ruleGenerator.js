@@ -15,79 +15,79 @@ const MUTATION_SEED_POOL = Array.isArray(PresetsModule.MUTATION_SEED_POOL)
 
 const DEFAULT_CHAOS_CONFIG = {
     sourceMix: {
-        simpleMax: 0.20,
-        poolMax: 0.90,
-        simpleMixCaMax: 0.5,
-        simpleMixSacredMax: 0.8
+        simpleMax: 0.28,
+        poolMax: 0.85,
+        simpleMixCaMax: 0.6,
+        simpleMixSacredMax: 0.85
     },
     seedPool: {
-        bucketTraffic: 1.25,
-        bucketMulticolor: 1.15,
+        bucketTraffic: 1.1,
+        bucketMulticolor: 1.0,
         bucketV2: 1.1,
         bucketV1: 1.0,
-        bucketDerived: 0.5,
-        class1: 0.35,
+        bucketDerived: 0.6,
+        class1: 0.5,
         class2: 1.0,
-        class3: 1.6,
-        class4: 2.0,
-        familyTraffic: 1.25,
-        familyDerived: 0.5
+        class3: 1.3,
+        class4: 1.6,
+        familyTraffic: 1.1,
+        familyDerived: 0.6
     },
     structure: {
-        maxStates: 6,
-        maxColors: 6,
-        addStateChance: 0.45,
-        addColorChance: 0.55,
-        promoteNewColorWritesChance: 0.35,
-        cloneTurnChangeChance: 0.35,
-        cloneNextStateChance: 0.35,
-        newStateReachChance: 0.2
+        maxStates: 5,
+        maxColors: 5,
+        addStateChance: 0.35,
+        addColorChance: 0.45,
+        promoteNewColorWritesChance: 0.25,
+        cloneTurnChangeChance: 0.25,
+        cloneNextStateChance: 0.25,
+        newStateReachChance: 0.15
     },
     minDimensions: {
-        minStates: 3,
-        minColors: 3,
-        maxStates: 7,
-        maxColors: 7,
-        maxPasses: 4,
-        promoteNewColorWritesChance: 0.6
+        minStates: 2,
+        minColors: 2,
+        maxStates: 6,
+        maxColors: 6,
+        maxPasses: 3,
+        promoteNewColorWritesChance: 0.45
     },
     boost: {
-        intensity: 10,
-        maxNoTurnRatio: 0.55,
-        minWriteChangeRatio: 0.22,
-        writeMutateChance: 0.6,
-        turnMutateChance: 0.75,
-        nextStateMutateChance: 0.4,
-        maxPasses: 3,
-        selfNextRatioThreshold: 0.85,
+        intensity: 7,
+        maxNoTurnRatio: 0.5,
+        minWriteChangeRatio: 0.25,
+        writeMutateChance: 0.45,
+        turnMutateChance: 0.6,
+        nextStateMutateChance: 0.3,
+        maxPasses: 2,
+        selfNextRatioThreshold: 0.8,
         minExternalTransitions: 1,
         minExternalTransitionsHigh: 2,
-        stateFlowTurnChance: 0.75,
-        stateFlowWriteChance: 0.5,
+        stateFlowTurnChance: 0.6,
+        stateFlowWriteChance: 0.4,
         includeNoTurnInBoost: false,
-        stateFlowIncludeNoTurn: true
+        stateFlowIncludeNoTurn: false
     },
     validation: {
         minStates: 1,
         minColors: 2,
         minTurnVariety: 2,
         minWriteVariety: 2,
-        minWriteChangeRatio: 0.22,
-        maxNoTurnRatio: 0.68,
-        maxSelfNextRatio: 0.92,
+        minWriteChangeRatio: 0.26,
+        maxNoTurnRatio: 0.6,
+        maxSelfNextRatio: 0.9,
         requireNonZeroWriteFromZero: true,
         rejectAbsorbing: true,
         minNonZeroWriteFromZeroStates: 2,
-        antCount: 4,
-        warmupSteps: 800,
-        measureChunkSteps: 2000,
-        longTailSteps: 9000,
-        minChangedCellsBase: 12,
-        minChangedCellsScale: 10,
-        minChangedCellsCap: 300,
-        minPaintedCellsBase: 40,
-        minPaintedCellsScale: 30,
-        minPaintedCellsCap: 800,
+        antCount: 3,
+        warmupSteps: 900,
+        measureChunkSteps: 2400,
+        longTailSteps: 10000,
+        minChangedCellsBase: 16,
+        minChangedCellsScale: 12,
+        minChangedCellsCap: 320,
+        minPaintedCellsBase: 50,
+        minPaintedCellsScale: 34,
+        minPaintedCellsCap: 850,
         minLateFactor: 0.55,
         minLateRatio: 0.25,
         minTailFactor: 0.5,
@@ -97,61 +97,61 @@ const DEFAULT_CHAOS_CONFIG = {
     generators: {
         ca: {
             minCount: 2,
-            turnBias: 0.5,
-            nextStateBias: 0.7
+            turnBias: 0.45,
+            nextStateBias: 0.75
         },
         sacred: {
             states: [2, 3, 5, 7],
             colors: [2, 3, 4],
-            mutationRate: 0.05
+            mutationRate: 0.03
         },
         wolfram: {
             maxRule: 256
         }
     },
     presetPath: {
-        diversifyChance: 0.6,
-        ensureMinChance: 0.8,
-        mutations: 10,
-        boostIntensity: 10
+        diversifyChance: 0.45,
+        ensureMinChance: 0.7,
+        mutations: 7,
+        boostIntensity: 7
     },
     poolPath: {
-        mutationsClass1: 14,
-        mutationsClass2: 12,
-        mutationsClass3: 11,
-        mutationsClass4: 10,
-        structureChanceDefault: 0.8,
-        structureChanceHighClass: 0.7,
-        structureChanceSmall: 0.92,
-        addStateChanceLow: 0.55,
-        addStateChanceHigh: 0.45,
-        addColorChanceLow: 0.9,
-        addColorChanceHigh: 0.8,
-        promoteNewColorWritesChance: 0.55,
-        doubleDiversifyChance: 0.35,
-        ensureMinChance: 0.55,
-        boostIntensity: 12
+        mutationsClass1: 10,
+        mutationsClass2: 9,
+        mutationsClass3: 8,
+        mutationsClass4: 7,
+        structureChanceDefault: 0.65,
+        structureChanceHighClass: 0.6,
+        structureChanceSmall: 0.85,
+        addStateChanceLow: 0.45,
+        addStateChanceHigh: 0.35,
+        addColorChanceLow: 0.75,
+        addColorChanceHigh: 0.7,
+        promoteNewColorWritesChance: 0.45,
+        doubleDiversifyChance: 0.25,
+        ensureMinChance: 0.45,
+        boostIntensity: 9
     },
     spawn: {
         clampMargin: 2,
-        spacing: 6,
-        ringRadius: 0.15,
+        spacing: 5,
+        ringRadius: 0.12,
         gridSpacing: 8,
-        cornersInset: 0.3
+        cornersInset: 0.28
     },
     weightedCount: {
-        normalMax: 4,
-        normalChance: 0.85,
-        rareMin: 5,
+        normalMax: 3,
+        normalChance: 0.9,
+        rareMin: 4,
         rareMaxExtra: 1
     },
     caRule: {
-        mutationChance: 0.05,
-        turnBias: 0.5,
+        mutationChance: 0.035,
+        turnBias: 0.45,
         colorOffset: 1
     },
     mutation: {
-        strictTurnChance: 0.5,
+        strictTurnChance: 0.6,
         nonStrictWeights: { turn: 1, state: 1, write: 1 }
     }
 };
