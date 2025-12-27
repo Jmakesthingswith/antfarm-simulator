@@ -188,129 +188,129 @@ function weightedPick(weights) {
 
 function randomizeChaosConfig() {
     const cfg = cloneStructured(DEFAULT_CHAOS_CONFIG);
-    const bias = randRange(0.45, 2.2);
+    const bias = randRange(0.6, 2.8);
 
-    cfg.sourceMix.simpleMax = clamp01(randRange(0.05, 0.35));
-    cfg.sourceMix.poolMax = clamp01(randRange(0.6, 0.95));
-    cfg.sourceMix.simpleMixCaMax = clamp01(randRange(0.35, 0.7));
-    cfg.sourceMix.simpleMixSacredMax = clamp01(randRange(cfg.sourceMix.simpleMixCaMax + 0.05, 0.92));
+    cfg.sourceMix.simpleMax = clamp01(randRange(0.05, 0.4));
+    cfg.sourceMix.poolMax = clamp01(randRange(0.7, 0.98));
+    cfg.sourceMix.simpleMixCaMax = clamp01(randRange(0.3, 0.75));
+    cfg.sourceMix.simpleMixSacredMax = clamp01(randRange(cfg.sourceMix.simpleMixCaMax + 0.05, 0.95));
     if (cfg.sourceMix.poolMax <= cfg.sourceMix.simpleMax) {
         cfg.sourceMix.poolMax = clamp01(cfg.sourceMix.simpleMax + 0.1);
     }
 
-    cfg.seedPool.bucketTraffic = randRange(0.7, 1.7);
-    cfg.seedPool.bucketMulticolor = randRange(0.7, 1.6);
-    cfg.seedPool.bucketV2 = randRange(0.7, 1.5);
-    cfg.seedPool.bucketV1 = randRange(0.7, 1.4);
-    cfg.seedPool.bucketDerived = randRange(0.3, 0.9);
-    cfg.seedPool.class1 = randRange(0.2, 0.8);
-    cfg.seedPool.class2 = randRange(0.6, 1.4);
-    cfg.seedPool.class3 = randRange(1.0, 2.2);
-    cfg.seedPool.class4 = randRange(1.2, 2.6);
-    cfg.seedPool.familyTraffic = randRange(0.7, 1.7);
-    cfg.seedPool.familyDerived = randRange(0.3, 0.9);
+    cfg.seedPool.bucketTraffic = randRange(0.5, 2.2);
+    cfg.seedPool.bucketMulticolor = randRange(0.5, 2.0);
+    cfg.seedPool.bucketV2 = randRange(0.6, 1.8);
+    cfg.seedPool.bucketV1 = randRange(0.5, 1.6);
+    cfg.seedPool.bucketDerived = randRange(0.2, 1.0);
+    cfg.seedPool.class1 = randRange(0.1, 0.7);
+    cfg.seedPool.class2 = randRange(0.5, 1.6);
+    cfg.seedPool.class3 = randRange(1.0, 2.6);
+    cfg.seedPool.class4 = randRange(1.4, 3.0);
+    cfg.seedPool.familyTraffic = randRange(0.6, 2.0);
+    cfg.seedPool.familyDerived = randRange(0.2, 0.9);
 
-    cfg.structure.maxStates = randInt(4, 9);
-    cfg.structure.maxColors = randInt(4, 9);
-    cfg.structure.addStateChance = clamp01(randRange(0.2, 0.85));
-    cfg.structure.addColorChance = clamp01(randRange(0.2, 0.9));
-    cfg.structure.promoteNewColorWritesChance = clamp01(randRange(0.2, 0.85));
-    cfg.structure.cloneTurnChangeChance = clamp01(randRange(0.2, 0.8));
-    cfg.structure.cloneNextStateChance = clamp01(randRange(0.2, 0.8));
-    cfg.structure.newStateReachChance = clamp01(randRange(0.1, 0.6));
+    cfg.structure.maxStates = randInt(5, 11);
+    cfg.structure.maxColors = randInt(5, 11);
+    cfg.structure.addStateChance = clamp01(randRange(0.35, 0.95));
+    cfg.structure.addColorChance = clamp01(randRange(0.35, 0.95));
+    cfg.structure.promoteNewColorWritesChance = clamp01(randRange(0.35, 0.95));
+    cfg.structure.cloneTurnChangeChance = clamp01(randRange(0.3, 0.9));
+    cfg.structure.cloneNextStateChance = clamp01(randRange(0.3, 0.9));
+    cfg.structure.newStateReachChance = clamp01(randRange(0.2, 0.7));
 
-    cfg.minDimensions.minStates = randInt(2, 5);
-    cfg.minDimensions.minColors = randInt(2, 5);
-    cfg.minDimensions.maxStates = Math.max(cfg.minDimensions.minStates, randInt(4, 9));
-    cfg.minDimensions.maxColors = Math.max(cfg.minDimensions.minColors, randInt(4, 9));
-    cfg.minDimensions.maxPasses = randInt(2, 6);
-    cfg.minDimensions.promoteNewColorWritesChance = clamp01(randRange(0.2, 0.9));
+    cfg.minDimensions.minStates = randInt(2, 6);
+    cfg.minDimensions.minColors = randInt(2, 6);
+    cfg.minDimensions.maxStates = Math.max(cfg.minDimensions.minStates, randInt(5, 11));
+    cfg.minDimensions.maxColors = Math.max(cfg.minDimensions.minColors, randInt(5, 11));
+    cfg.minDimensions.maxPasses = randInt(3, 7);
+    cfg.minDimensions.promoteNewColorWritesChance = clamp01(randRange(0.35, 0.95));
 
-    cfg.boost.intensity = randInt(6, Math.round(18 * bias));
-    cfg.boost.maxNoTurnRatio = clamp01(randRange(0.4, 0.85));
-    cfg.boost.minWriteChangeRatio = clamp01(randRange(0.1, 0.35));
-    cfg.boost.writeMutateChance = clamp01(randRange(0.3, 0.9));
-    cfg.boost.turnMutateChance = clamp01(randRange(0.4, 0.95));
-    cfg.boost.nextStateMutateChance = clamp01(randRange(0.2, 0.75));
-    cfg.boost.maxPasses = randInt(2, 5);
-    cfg.boost.selfNextRatioThreshold = clamp01(randRange(0.7, 0.95));
-    cfg.boost.minExternalTransitions = randInt(1, 3);
-    cfg.boost.minExternalTransitionsHigh = randInt(cfg.boost.minExternalTransitions, 4);
-    cfg.boost.stateFlowTurnChance = clamp01(randRange(0.35, 0.9));
-    cfg.boost.stateFlowWriteChance = clamp01(randRange(0.25, 0.8));
-    cfg.boost.includeNoTurnInBoost = Math.random() < 0.35;
-    cfg.boost.stateFlowIncludeNoTurn = Math.random() < 0.6;
+    cfg.boost.intensity = randInt(10, Math.round(26 * bias));
+    cfg.boost.maxNoTurnRatio = clamp01(randRange(0.35, 0.9));
+    cfg.boost.minWriteChangeRatio = clamp01(randRange(0.08, 0.32));
+    cfg.boost.writeMutateChance = clamp01(randRange(0.45, 0.98));
+    cfg.boost.turnMutateChance = clamp01(randRange(0.5, 0.98));
+    cfg.boost.nextStateMutateChance = clamp01(randRange(0.35, 0.85));
+    cfg.boost.maxPasses = randInt(3, 6);
+    cfg.boost.selfNextRatioThreshold = clamp01(randRange(0.65, 0.95));
+    cfg.boost.minExternalTransitions = randInt(1, 4);
+    cfg.boost.minExternalTransitionsHigh = randInt(Math.max(2, cfg.boost.minExternalTransitions), 5);
+    cfg.boost.stateFlowTurnChance = clamp01(randRange(0.45, 0.95));
+    cfg.boost.stateFlowWriteChance = clamp01(randRange(0.35, 0.9));
+    cfg.boost.includeNoTurnInBoost = Math.random() < 0.5;
+    cfg.boost.stateFlowIncludeNoTurn = Math.random() < 0.7;
 
-    cfg.validation.minWriteChangeRatio = clamp01(randRange(0.1, 0.35));
-    cfg.validation.maxNoTurnRatio = clamp01(randRange(0.55, 0.88));
-    cfg.validation.maxSelfNextRatio = clamp01(randRange(0.85, 0.98));
-    cfg.validation.requireNonZeroWriteFromZero = Math.random() > 0.1;
-    cfg.validation.rejectAbsorbing = Math.random() > 0.1;
+    cfg.validation.minWriteChangeRatio = clamp01(randRange(0.06, 0.28));
+    cfg.validation.maxNoTurnRatio = clamp01(randRange(0.6, 0.92));
+    cfg.validation.maxSelfNextRatio = clamp01(randRange(0.88, 0.98));
+    cfg.validation.requireNonZeroWriteFromZero = Math.random() > 0.15;
+    cfg.validation.rejectAbsorbing = Math.random() > 0.2;
     cfg.validation.minNonZeroWriteFromZeroStates = randInt(1, 3);
-    cfg.validation.antCount = randInt(2, 6);
-    cfg.validation.warmupSteps = randInt(400, 1200);
-    cfg.validation.measureChunkSteps = randInt(1200, 3500);
-    cfg.validation.longTailSteps = randInt(4000, 12000);
-    cfg.validation.minChangedCellsBase = randInt(6, 20);
-    cfg.validation.minChangedCellsScale = randInt(6, 20);
-    cfg.validation.minChangedCellsCap = randInt(150, 450);
-    cfg.validation.minPaintedCellsBase = randInt(20, 80);
-    cfg.validation.minPaintedCellsScale = randInt(15, 45);
-    cfg.validation.minPaintedCellsCap = randInt(300, 1000);
-    cfg.validation.minLateFactor = clamp01(randRange(0.3, 0.75));
-    cfg.validation.minLateRatio = clamp01(randRange(0.15, 0.55));
-    cfg.validation.minTailFactor = clamp01(randRange(0.3, 0.7));
-    cfg.validation.minTailRatio = clamp01(randRange(0.1, 0.45));
-    cfg.validation.minNonZeroColorsCap = randInt(2, 5);
+    cfg.validation.antCount = randInt(2, 7);
+    cfg.validation.warmupSteps = randInt(300, 900);
+    cfg.validation.measureChunkSteps = randInt(800, 3000);
+    cfg.validation.longTailSteps = randInt(2500, 10000);
+    cfg.validation.minChangedCellsBase = randInt(5, 18);
+    cfg.validation.minChangedCellsScale = randInt(5, 18);
+    cfg.validation.minChangedCellsCap = randInt(120, 420);
+    cfg.validation.minPaintedCellsBase = randInt(15, 70);
+    cfg.validation.minPaintedCellsScale = randInt(10, 40);
+    cfg.validation.minPaintedCellsCap = randInt(220, 900);
+    cfg.validation.minLateFactor = clamp01(randRange(0.25, 0.7));
+    cfg.validation.minLateRatio = clamp01(randRange(0.12, 0.5));
+    cfg.validation.minTailFactor = clamp01(randRange(0.25, 0.65));
+    cfg.validation.minTailRatio = clamp01(randRange(0.08, 0.4));
+    cfg.validation.minNonZeroColorsCap = randInt(2, 6);
 
-    cfg.generators.ca.minCount = randInt(2, 4);
-    cfg.generators.ca.turnBias = clamp01(randRange(0.3, 0.7));
-    cfg.generators.ca.nextStateBias = clamp01(randRange(0.5, 0.9));
-    cfg.generators.sacred.states = Math.random() < 0.5 ? [2, 3, 5, 7] : [2, 3, 4, 6];
-    cfg.generators.sacred.colors = Math.random() < 0.5 ? [2, 3, 4] : [2, 3, 5];
-    cfg.generators.sacred.mutationRate = clamp01(randRange(0.02, 0.12));
+    cfg.generators.ca.minCount = randInt(2, 5);
+    cfg.generators.ca.turnBias = clamp01(randRange(0.25, 0.75));
+    cfg.generators.ca.nextStateBias = clamp01(randRange(0.4, 0.9));
+    cfg.generators.sacred.states = Math.random() < 0.5 ? [2, 3, 5, 7] : [2, 3, 4, 5, 6, 7];
+    cfg.generators.sacred.colors = Math.random() < 0.5 ? [2, 3, 4] : [2, 3, 4, 5];
+    cfg.generators.sacred.mutationRate = clamp01(randRange(0.03, 0.18));
 
-    cfg.presetPath.diversifyChance = clamp01(randRange(0.3, 0.9));
-    cfg.presetPath.ensureMinChance = clamp01(randRange(0.4, 0.95));
-    cfg.presetPath.mutations = randInt(6, 20);
-    cfg.presetPath.boostIntensity = randInt(8, 20);
+    cfg.presetPath.diversifyChance = clamp01(randRange(0.45, 0.95));
+    cfg.presetPath.ensureMinChance = clamp01(randRange(0.5, 0.98));
+    cfg.presetPath.mutations = randInt(10, 26);
+    cfg.presetPath.boostIntensity = randInt(12, 24);
 
-    cfg.poolPath.mutationsClass1 = randInt(8, 20);
-    cfg.poolPath.mutationsClass2 = randInt(8, 18);
-    cfg.poolPath.mutationsClass3 = randInt(7, 16);
-    cfg.poolPath.mutationsClass4 = randInt(6, 14);
-    cfg.poolPath.structureChanceDefault = clamp01(randRange(0.4, 0.95));
-    cfg.poolPath.structureChanceHighClass = clamp01(randRange(0.35, 0.9));
-    cfg.poolPath.structureChanceSmall = clamp01(randRange(0.6, 0.98));
-    cfg.poolPath.addStateChanceLow = clamp01(randRange(0.25, 0.8));
-    cfg.poolPath.addStateChanceHigh = clamp01(randRange(0.2, 0.7));
-    cfg.poolPath.addColorChanceLow = clamp01(randRange(0.4, 0.95));
-    cfg.poolPath.addColorChanceHigh = clamp01(randRange(0.3, 0.9));
-    cfg.poolPath.promoteNewColorWritesChance = clamp01(randRange(0.3, 0.9));
-    cfg.poolPath.doubleDiversifyChance = clamp01(randRange(0.15, 0.6));
-    cfg.poolPath.ensureMinChance = clamp01(randRange(0.3, 0.8));
-    cfg.poolPath.boostIntensity = randInt(10, 22);
+    cfg.poolPath.mutationsClass1 = randInt(12, 28);
+    cfg.poolPath.mutationsClass2 = randInt(10, 24);
+    cfg.poolPath.mutationsClass3 = randInt(8, 22);
+    cfg.poolPath.mutationsClass4 = randInt(7, 20);
+    cfg.poolPath.structureChanceDefault = clamp01(randRange(0.55, 0.98));
+    cfg.poolPath.structureChanceHighClass = clamp01(randRange(0.45, 0.95));
+    cfg.poolPath.structureChanceSmall = clamp01(randRange(0.75, 0.99));
+    cfg.poolPath.addStateChanceLow = clamp01(randRange(0.35, 0.9));
+    cfg.poolPath.addStateChanceHigh = clamp01(randRange(0.3, 0.85));
+    cfg.poolPath.addColorChanceLow = clamp01(randRange(0.55, 0.98));
+    cfg.poolPath.addColorChanceHigh = clamp01(randRange(0.45, 0.95));
+    cfg.poolPath.promoteNewColorWritesChance = clamp01(randRange(0.45, 0.95));
+    cfg.poolPath.doubleDiversifyChance = clamp01(randRange(0.25, 0.7));
+    cfg.poolPath.ensureMinChance = clamp01(randRange(0.45, 0.85));
+    cfg.poolPath.boostIntensity = randInt(14, 28);
 
-    cfg.spawn.clampMargin = randInt(1, 4);
-    cfg.spawn.spacing = randInt(4, 10);
-    cfg.spawn.ringRadius = randRange(0.08, 0.3);
-    cfg.spawn.gridSpacing = randInt(6, 12);
-    cfg.spawn.cornersInset = randRange(0.15, 0.4);
+    cfg.spawn.clampMargin = randInt(1, 5);
+    cfg.spawn.spacing = randInt(4, 12);
+    cfg.spawn.ringRadius = randRange(0.06, 0.35);
+    cfg.spawn.gridSpacing = randInt(6, 14);
+    cfg.spawn.cornersInset = randRange(0.12, 0.45);
 
-    cfg.weightedCount.normalMax = randInt(3, 6);
-    cfg.weightedCount.normalChance = clamp01(randRange(0.6, 0.95));
-    cfg.weightedCount.rareMin = randInt(4, 7);
-    cfg.weightedCount.rareMaxExtra = randInt(1, 2);
+    cfg.weightedCount.normalMax = randInt(3, 7);
+    cfg.weightedCount.normalChance = clamp01(randRange(0.5, 0.92));
+    cfg.weightedCount.rareMin = randInt(4, 8);
+    cfg.weightedCount.rareMaxExtra = randInt(1, 3);
 
-    cfg.caRule.mutationChance = clamp01(randRange(0.02, 0.12));
-    cfg.caRule.turnBias = clamp01(randRange(0.35, 0.7));
-    cfg.caRule.colorOffset = randInt(1, 2);
+    cfg.caRule.mutationChance = clamp01(randRange(0.03, 0.2));
+    cfg.caRule.turnBias = clamp01(randRange(0.25, 0.75));
+    cfg.caRule.colorOffset = randInt(1, 3);
 
-    cfg.mutation.strictTurnChance = clamp01(randRange(0.35, 0.7));
+    cfg.mutation.strictTurnChance = clamp01(randRange(0.3, 0.7));
     cfg.mutation.nonStrictWeights = {
-        turn: randRange(0.5, 1.5),
-        state: randRange(0.5, 1.5),
-        write: randRange(0.5, 1.5)
+        turn: randRange(0.4, 2.0),
+        state: randRange(0.4, 2.0),
+        write: randRange(0.4, 2.0)
     };
 
     chaosConfig = cfg;
