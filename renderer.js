@@ -476,22 +476,42 @@ class GridRenderer {
         const height = this.height;
 
         if (!shouldForceRedraw && hasDirtyCells) {
+            // Group dirty cells by color to minimize fillStyle changes
+            const cellsByColor = new Map();
+
             for (const index of dirtyCells) {
-                const x = index % width;
-                const y = Math.floor(index / width);
                 const state = grid[index];
+                const colorIndex = state === 0 ? -1 : this.getColorIndex(state, paletteLen);
+                
+                if (!cellsByColor.has(colorIndex)) {
+                    cellsByColor.set(colorIndex, []);
+                }
+                cellsByColor.get(colorIndex).push(index);
+            }
 
-                // Clear the cell first (transparency)
-                ctx.clearRect(x * cellSize, y * cellSize, cellSize, cellSize);
-
-                if (state !== 0) {
-                    if (this.renderMode === 'truchet') {
-                        const orientation = state & 1;
-                        this.drawTruchetCell(ctx, x, y, cellSize, state, currentPalette, paletteLen, orientation);
-                    } else {
-                        const colorIndex = this.getColorIndex(state, paletteLen);
-                        ctx.fillStyle = currentPalette[colorIndex];
-                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            for (const [colorIndex, indices] of cellsByColor) {
+                if (colorIndex === -1) {
+                    // Clear background cells
+                    for (const index of indices) {
+                        const x = index % width;
+                        const y = Math.floor(index / width);
+                        ctx.clearRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    }
+                } else {
+                    ctx.fillStyle = currentPalette[colorIndex];
+                    for (const index of indices) {
+                        const x = index % width;
+                        const y = Math.floor(index / width);
+                        // Clear before fill for clean transparency
+                        ctx.clearRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        
+                        if (this.renderMode === 'truchet') {
+                            const state = grid[index];
+                            const orientation = state & 1;
+                            this.drawTruchetCell(ctx, x, y, cellSize, state, currentPalette, paletteLen, orientation);
+                        } else {
+                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        }
                     }
                 }
             }
