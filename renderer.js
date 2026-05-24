@@ -173,11 +173,19 @@ class GridRenderer {
         this._needsFullRedraw = true;
     }
 
-    setPalette(name) {
-        if (this.palettes[name]) {
-            this.currentPalette = this.palettes[name];
-            this._needsFullRedraw = true;
+    setPalette(paletteOrName) {
+        let targetPalette = null;
+        if(Array.isArray(paletteOrName)) {
+            targetPalette = paletteOrName;
+        } else if (typeof paletteOrName === 'string' && this.palettes[paletteOrName]) {
+            targetPalette = this.palettes[paletteOrName];
         }
+        if (targetPalette) {
+            this.currentPalette = this.normalizePalette(targetPalette);
+            this._needsFullRedraw = true;
+            return true;
+        }
+        return false;
     }
 
     setCustomPalette(colors) {
@@ -186,6 +194,7 @@ class GridRenderer {
         this.palettes["Custom"] = normalized;
         this._needsFullRedraw = true;
     }
+
 
     // NOTE:
     // Palette generation uses HSL for proposals and CIELAB (ΔE) for distance checks.
@@ -508,7 +517,8 @@ class GridRenderer {
                         if (this.renderMode === 'truchet') {
                             const state = grid[index];
                             const orientation = state & 1;
-                            this.drawTruchetCell(ctx, x, y, cellSize, state, currentPalette, paletteLen, orientation);
+                            const safeColorIndex = this.getColorIndex(state, paletteLen);
+                            this.drawTruchetCell(ctx, x, y, cellSize, state, currentPalette, paletteLen, safeColorIndex, orientation);
                         } else {
                             ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                         }
@@ -525,7 +535,8 @@ class GridRenderer {
                     if (state !== 0) {
                         if (this.renderMode === 'truchet') {
                             const orientation = state & 1;
-                            this.drawTruchetCell(ctx, x, y, cellSize, state, currentPalette, paletteLen, orientation);
+                            const safeColorIndex = this.getColorIndex(state, paletteLen);
+                            this.drawTruchetCell(ctx, x, y, cellSize, state, currentPalette, paletteLen, safeColorIndex, orientation);
                         } else {
                             // Default Block Rendering
                             const colorIndex = this.getColorIndex(state, paletteLen);
@@ -645,8 +656,13 @@ class GridRenderer {
     }
 
     getColorIndex(state, paletteLen) {
-        // Palette slot 0 is always the background; active states begin at 1 and wrap across the remaining entries.
-        if (paletteLen <= 1) return 0;
+        // Safe fallbacks for empty or single-color custom palettes
+        if (!paletteLen || paletteLen <= 1) return 0;
+
+        // If the palette only has 2 colors, there's only 1 active slot (index 1)
+        if (paletteLen === 2) return 1;
+        
+        // Perfect wrapping for state integers starting at 1 across the rest of the slots
         return ((state - 1) % (paletteLen - 1)) + 1;
     }
 }

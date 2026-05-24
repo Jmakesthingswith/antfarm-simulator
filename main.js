@@ -683,6 +683,7 @@ function updateColorPicker() {
             const newPalette = [...appState.renderer.currentPalette];
             newPalette[index] = newColor;
             appState.renderer.setCustomPalette(newPalette);
+            appState.renderer.setPalette(newPalette); // Ensure the renderer's palette is updated immediately for accurate color parsing during the transition  
             if (!paletteEditSnapshot) {
                 paletteEditSnapshot = getSnapshot();
             }
