@@ -579,7 +579,7 @@ function applyThemePalette(desiredColorCount, snap = false) {
 
     if (!appState.renderer) return;
 
-    const duration = snap ? 0 : 200;
+    const duration = snap ? 0 : 600;
 
     if (name && appState.renderer.palettes && appState.renderer.palettes[name]) {
         transitionToPalette(appState.renderer.palettes[name], duration);
@@ -601,7 +601,7 @@ function cancelPaletteTransition() {
     }
 }
 
-function transitionToPalette(targetColors, durationMs = 200) {
+function transitionToPalette(targetColors, durationMs = 600) {
     if (!appState.renderer) return;
     if (!Array.isArray(targetColors) || targetColors.length === 0) return;
 
@@ -1361,7 +1361,7 @@ function setupControls() {
         if (!autoRandomizeState.colorCyclingEnabled) return;
 
         const jitter = (Math.random() - 0.3) * autoRandomizeState.colorJitterMs;
-        const delay = Math.max(5000, Math.round(autoRandomizeState.colorBaseMs + jitter));
+        const delay = Math.max(10000, Math.round(autoRandomizeState.colorBaseMs + jitter));
 
         autoRandomizeState.colorTimeoutId = setTimeout(() => {
             if (!autoRandomizeState.enabled) return;
