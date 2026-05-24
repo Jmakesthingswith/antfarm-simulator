@@ -1958,7 +1958,9 @@ function randomizeStrictSpawnForPresetLoad() {
         const candidates = [];
         for (let i = 1; i < STRICT_SPAWN_PRESETS.length; i++) {
             const id = STRICT_SPAWN_PRESETS[i]?.id;
-            if (id && id !== 'corners') candidates.push(i);
+            if (id && id !== appState.strictSpawnMode) {
+                candidates.push(i);
+            }
         }
         const pick = candidates.length
             ? candidates[Math.floor(Math.random() * candidates.length)]
