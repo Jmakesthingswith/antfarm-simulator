@@ -573,20 +573,22 @@ function pickThemePaletteName(desiredColorCount) {
     return pool[Math.floor(Math.random() * pool.length)][0] || null;
 }
 
-function applyThemePalette(desiredColorCount) {
+function applyThemePalette(desiredColorCount, snap = false) {
     const name = pickThemePaletteName(desiredColorCount);
     const desired = Math.min(5, Math.max(2, Number.isFinite(desiredColorCount) ? desiredColorCount : 5));
 
     if (!appState.renderer) return;
 
+    const duration = snap ? 0 : 200;
+
     if (name && appState.renderer.palettes && appState.renderer.palettes[name]) {
-        transitionToPalette(appState.renderer.palettes[name], 900);
+        transitionToPalette(appState.renderer.palettes[name], duration);
         if (themeSelect) themeSelect.value = name;
         return;
     }
 
     const generated = appState.renderer.generateRandomPalette(desired);
-    transitionToPalette(generated, 900);
+    transitionToPalette(generated, duration);
     if (themeSelect) themeSelect.value = 'Custom';
 }
 
@@ -599,7 +601,7 @@ function cancelPaletteTransition() {
     }
 }
 
-function transitionToPalette(targetColors, durationMs = 900) {
+function transitionToPalette(targetColors, durationMs = 200) {
     if (!appState.renderer) return;
     if (!Array.isArray(targetColors) || targetColors.length === 0) return;
 
@@ -608,9 +610,12 @@ function transitionToPalette(targetColors, durationMs = 900) {
     const renderer = appState.renderer;
     const from = renderer.currentPalette ? [...renderer.currentPalette] : [];
     const to = renderer.normalizePalette(targetColors);
+    renderer.setPalette(to);
 
-    if (!from.length || from.length !== to.length) {
+    if (durationMs === 0 || !from.length || from.length !== to.length) {        renderer.setCustomPalette(to);
         renderer.setCustomPalette(to);
+        renderer.setPalette(to);
+        renderer.setTransientPalette(to);
         updateColorPicker();
         requestRender({ grid: true, forceFullRedraw: true });
         processRenderQueue();
@@ -645,6 +650,7 @@ function transitionToPalette(targetColors, durationMs = 900) {
 
         if (rawT >= 1) {
             renderer.setCustomPalette(to);
+            renderer.setPalette(to);
             updateColorPicker();
             _paletteTransitionRaf = null;
             return;
@@ -1272,7 +1278,7 @@ function setupControls() {
                 // Handle Colors: Logic-Driven Palette Sizing
                 // We check state '0' as a representative sample of the rule dimensions.
                 const numColors = Object.keys(newRules[0]).length;
-                applyThemePalette(numColors);
+                applyThemePalette(numColors, true);
                 syncTruchetMode(renderer.renderMode === 'truchet');
 
                 rulePreset.selectedIndex = -1;
